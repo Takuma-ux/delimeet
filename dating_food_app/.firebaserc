@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "cd /Users/takumanagasawa/dating-food-apps-proj && firebase deploy --only storage": "dating-food-apps"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="デリミート - 素敵な出会いと美味しい食事を">
+  <meta name="keywords" content="dating, food, restaurant, match, 出会い, 料理, デート">
+  <meta name="author" content="Dating Food App">
+  <meta name="google-site-verification" content="DZo7N6_JyToAZozBRp1ESydCS3ZK0JwHc3Z-VN8Hxk8" />
+  
+  <!-- Cross-Origin-Opener-Policy 設定 -->
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+  
+  <!-- Viewport meta tag for mobile responsiveness -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Dating Food App">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>デリミート - グルメでつながる出会いアプリ</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Optimized resource hints for better PageSpeed -->
+  <link rel="preconnect" href="https://firebase.googleapis.com">
+  <link rel="preconnect" href="https://firestore.googleapis.com">
+  <link rel="dns-prefetch" href="https://maps.googleapis.com">
+  <link rel="dns-prefetch" href="https://accounts.google.com">
+  
+  <!-- Preload critical assets -->
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="main.dart.js" as="script">
+  
+  <!-- Critical CSS for fast loading -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+    }
+    
+    /* Optimized loading indicator */
+    .flutter-loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    /* Simple spinner for better perceived performance */
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #ff7043;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  
+  <!-- Google Maps JavaScript API for Web -->
+  <!-- 
+    🚨 重要: このAPIキーはWeb版（delimeet.jp）専用です
+    - iOS/Android版は別のAPIキーを使用
+    - Web版では以下のドメインが許可されている必要があります：
+      - delimeet.jp/*
+      - *.delimeet.jp/*
+      - localhost:*/* (開発用)
+      - *.web.app/* (Firebase Hostingデフォルト用)
+  -->
+  <script>
+    // Google Maps API読み込みの改善版
+    (function() {
+      var googleMapsLoaded = false;
+      
+      // 従来のAPIローダーを優先的に使用
+      function loadLegacyMapsAPI() {
+        if (googleMapsLoaded) return;
+        
+        try {
+          var script = document.createElement('script');
+          script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBdeq5_iWxG27-caZsqlPG5vJ4JCn4Opqg&libraries=places&v=weekly';
+          script.async = true;
+          script.defer = true;
+          script.onload = function() {
+            googleMapsLoaded = true;
+            console.log('Google Maps API (legacy) loaded successfully');
+          };
+          script.onerror = function() {
+            console.error('Google Maps API failed to load');
+          };
+          document.head.appendChild(script);
+        } catch (e) {
+          console.error('Failed to load Google Maps API:', e);
+        }
+      }
+      
+      // 従来のAPIローダーから開始
+      loadLegacyMapsAPI();
+    })();
+  </script>
+  
+  <!-- Google Sign-In for Web (lazy loaded) -->
+  <script>
+    // Lazy load Google Sign-In when needed
+    window.loadGoogleSignIn = function() {
+      if (!window.google) {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    };
+  </script>
+  <meta property="og:title" content="デリミート - 素敵な出会いと美味しい食事を" />
+  <meta property="og:description" content="グルメでつながる出会いアプリ『デリミート』で素敵な出会いと美味しい食事を楽しもう！" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://delimeet.jp/" />
+  <meta property="og:image" content="https://delimeet.jp/ogp.png" />
+  <meta property="og:site_name" content="デリミート" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="デリミート - 素敵な出会いと美味しい食事を" />
+  <meta name="twitter:description" content="グルメでつながる出会いアプリ『デリミート』で素敵な出会いと美味しい食事を楽しもう！" />
+  <meta name="twitter:image" content="https://delimeet.jp/ogp.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "デリミート",
+    "url": "https://delimeet.jp/",
+    "description": "グルメでつながる出会いアプリ『デリミート』で素敵な出会いと美味しい食事を楽しもう！"
+  }
+  </script>
+</head>
+<body>
+  <!-- Optimized loading indicator for better LCP -->
+  <div class="flutter-loading" id="loading-indicator">
+    <div class="loading-spinner"></div>
+    <div>デリミートを読み込み中...</div>
+  </div>
+
+  <script src="flutter_bootstrap.js" async></script>
+  
+  <script>
+    // Simple loading handling
+    function hideLoading() {
+      const loading = document.getElementById('loading-indicator');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    }
+    
+    // Hide loading when Flutter is ready
+    window.addEventListener('flutter-first-frame', hideLoading, { once: true });
+    
+    // Shorter fallback timeout
+    setTimeout(hideLoading, 5000);
+  </script>
+</body>
+</html>

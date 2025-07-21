@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+package-lock.json
+
+# Firebase
+.firebase/
+firebase-storage-backup/
+firebase-storage-cors.json
+firebase.json
+firestore.indexes.json
+firestore.rules
+storage.rules
+
+# 認証・秘密鍵
+AuthKey_*.p8
+
+# ユーザーデータ・バックアップ
+users.json
+dating-food-apps-proj.zip
+check_2.json
+result_1.json
+
+# Android/iOS Firebase設定
+dating_food_app/android/app/google-services.json
+dating_food_app/ios/Runner/GoogleService-Info.plist
+
+# その他
+.env
