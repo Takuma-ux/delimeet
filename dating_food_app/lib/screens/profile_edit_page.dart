@@ -71,7 +71,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   bool _isPersonalityTagsExpanded = false;
 
   // マッチしたい人の特徴
-  String? _selectedPreferredAgeRange;
+  List<String> _selectedPreferredAgeRanges = [];
   String? _selectedPaymentPreference;
   String? _selectedPreferredGender;
 
@@ -112,6 +112,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     'ESTP', 'ESFP', 'ENFP', 'ENTP',
     'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ',
   ];
+  static const List<String> _mbtiTypeNames = [
+    '管理者', '擁護者', '提唱者', '建築家',
+    '巨匠', '冒険者', '仲介者', '論理学者',
+    '起業家', 'エンターテイナー', '活動家', '討論者',
+    '幹部', '領事官', '主人公', '指揮官',
+  ];
 
   // 選択肢
   static const List<String> _genders = ['男性', '女性', 'その他'];
@@ -151,7 +157,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     'split', 'pay', 'be_paid'
   ];
   static const List<String> _paymentPreferenceLabels = [
-    '割り勘希望', '奢りたい', '奢られたい'
+    '割り勘希望', '奢ってもいい', '奢られたい'
   ];
   static const List<String> _preferredGenders = [
     '男性', '女性', 'どちらでも'
@@ -218,7 +224,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       case 'split':
         return '割り勘希望';
       case 'pay':
-        return '奢りたい';
+        return '奢ってもいい';
       case 'be_paid':
         return '奢られたい';
       default:
@@ -324,7 +330,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
           _selectedMbti = userDataMap['mbti']?.toString();
           
           // マッチしたい人の特徴の読み込み
-          _selectedPreferredAgeRange = userDataMap['preferred_age_range']?.toString();
+          final preferredAgeRange = userDataMap['preferred_age_range']?.toString();
+          if (preferredAgeRange != null && preferredAgeRange.isNotEmpty) {
+            _selectedPreferredAgeRanges = preferredAgeRange.split(',').map((e) => e.trim()).toList();
+          } else {
+            _selectedPreferredAgeRanges = [];
+          }
           _selectedPaymentPreference = userDataMap['payment_preference']?.toString();
           _selectedPreferredGender = userDataMap['preferred_gender']?.toString();
           
@@ -662,7 +673,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
         'image_url': imageUrl,
         'tags': _selectedTags,
         'mbti': _selectedMbti,
-        'preferred_age_range': _selectedPreferredAgeRange,
+        'preferred_age_range': _selectedPreferredAgeRanges.join(','),
         'payment_preference': _selectedPaymentPreference,
         'preferred_gender': _selectedPreferredGender,
         'school_id': _selectedSchoolId,
@@ -853,7 +864,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('プロフィール編集'),
-          backgroundColor: Colors.pink,
+          backgroundColor: const Color(0xFFFFEFD5),
           foregroundColor: Colors.white,
         ),
         body: const Center(
@@ -865,7 +876,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('プロフィール編集'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           TextButton(
@@ -951,6 +962,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                       onPressed: _pickImage,
                       icon: const Icon(Icons.edit),
                       label: const Text('画像を変更'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey[700],
+                      ),
                     ),
                   ],
                 ),
@@ -1410,14 +1424,14 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
+                        color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         _selectedMbti!,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.orange.shade700,
+                          color: Colors.grey.shade700,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1438,9 +1452,11 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                   hintText: 'MBTIタイプを選択してください',
                 ),
                 items: _mbtiTypes.map((mbti) {
+                  final index = _mbtiTypes.indexOf(mbti);
+                  final typeName = _mbtiTypeNames[index];
                   return DropdownMenuItem(
                     value: mbti,
-                    child: Text(mbti),
+                    child: Text('$mbti（$typeName）'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1623,7 +1639,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                         title: const Text('いいね限定表示'),
                         subtitle: const Text('あなたがいいねした人にのみプロフィールが表示されます'),
                         value: _visibleOnlyIfLiked,
-                        secondary: Icon(Icons.favorite, color: Colors.pink),
+                        secondary: Icon(Icons.favorite, color: const Color(0xFFFFEFD5)),
                         onChanged: (value) {
                           setState(() {
                             _visibleOnlyIfLiked = value;
@@ -1637,46 +1653,16 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
               
               const SizedBox(height: 32),
               
-              // マッチしたい人の特徴セクション
+              // 支払い方法セクション
               const Text(
-                'マッチしたい人の特徴',
+                '支払い方法',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               const Text(
-                'あなたのマッチング設定を選択してください',
+                'デート時の支払い方法を選択してください',
                 style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
-              const SizedBox(height: 16),
-              
-              // 年齢範囲選択
-              DropdownButtonFormField<String?>(
-                value: _selectedPreferredAgeRange,
-                decoration: const InputDecoration(
-                  labelText: '希望年齢範囲',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.cake),
-                ),
-                hint: const Text('年齢範囲を選択'),
-                items: [
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('未設定'),
-                  ),
-                  ..._ageRanges.map((range) {
-                    return DropdownMenuItem<String?>(
-                      value: range,
-                      child: Text('${range}歳'),
-                    );
-                  }).toList(),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPreferredAgeRange = value;
-                  });
-                },
-              ),
-              
               const SizedBox(height: 16),
               
               // 支払い方法選択
@@ -1706,6 +1692,47 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                     _selectedPaymentPreference = value;
                   });
                 },
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // マッチしたい人の特徴セクション
+              const Text(
+                'マッチしたい人の特徴',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'あなたのマッチング設定を選択してください',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              
+              // 年齢範囲選択
+              const Text(
+                '希望年齢範囲（複数選択可）',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _ageRanges.map((range) {
+                  final isSelected = _selectedPreferredAgeRanges.contains(range);
+                  return FilterChip(
+                    label: Text('${range}歳'),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                  setState(() {
+                        if (selected) {
+                          _selectedPreferredAgeRanges.add(range);
+                        } else {
+                          _selectedPreferredAgeRanges.remove(range);
+                        }
+                  });
+                },
+                  );
+                }).toList(),
               ),
               
               const SizedBox(height: 16),

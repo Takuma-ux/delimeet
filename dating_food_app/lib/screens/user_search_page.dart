@@ -77,10 +77,16 @@ class _UserSearchPageState extends State<UserSearchPage> {
 
   // MBTI選択肢
   static const List<String> _mbtiTypes = [
-    'INTJ', 'INTP', 'ENTJ', 'ENTP',
-    'INFJ', 'INFP', 'ENFJ', 'ENFP',
-    'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ',
-    'ISTP', 'ISFP', 'ESTP', 'ESFP',
+    'ISTJ', 'ISFJ', 'INFJ', 'INTJ',
+    'ISTP', 'ISFP', 'INFP', 'INTP',
+    'ESTP', 'ESFP', 'ENFP', 'ENTP',
+    'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ',
+  ];
+  static const List<String> _mbtiTypeNames = [
+    '管理者', '擁護者', '提唱者', '建築家',
+    '巨匠', '冒険者', '仲介者', '論理学者',
+    '起業家', 'エンターテイナー', '活動家', '討論者',
+    '幹部', '領事官', '主人公', '指揮官',
   ];
 
   // ハッシュタグの選択肢（添付リストに差し替え）
@@ -138,11 +144,11 @@ class _UserSearchPageState extends State<UserSearchPage> {
   }
 
   Future<void> _initializeDataSequentially() async {
-    // 1. まず自分のIDとブロック情報を取得
+    setState(() { _isLoading = true; });
     await _initializeUserIdAndBlocks();
-    
-    // 2. その後で初期データを取得
+    await _loadUserLikes(); // ここで必ず取得
     await _initializeData();
+    setState(() { _isLoading = false; });
   }
 
   Future<void> _initializeUserIdAndBlocks() async {
@@ -240,7 +246,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
 
   Future<void> _initializeData() async {
     if (!mounted) return;
-    setState(() { _isLoading = true; });
+    // setState(() { _isLoading = true; }); // ここではローディングを制御しない
     try {
       // 初期表示: Supabaseから最新ユーザー20件取得
       final result = await _supabase
@@ -249,7 +255,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
           .order('created_at', ascending: false)
           .limit(20);
       
-      // 自分自身、ブロック関係、プライバシー設定ユーザーを除外
+      // 自分自身、ブロック関係、プライバシー設定ユーザー、いいね済みユーザーを除外
       final filteredResults = result.where((user) {
         final userId = user['id'];
         
@@ -258,6 +264,9 @@ class _UserSearchPageState extends State<UserSearchPage> {
         
         // ブロック関係を除外
         if (_blockedUserIds.contains(userId)) return false;
+        
+        // いいね済みユーザーを除外
+        if (_likedUsers.contains(userId)) return false;
         
         // 身内バレ防止機能: 相手がhide_from_same_school = trueかつ同じ学校の場合は除外
         if (user['hide_from_same_school'] == true && 
@@ -279,11 +288,11 @@ class _UserSearchPageState extends State<UserSearchPage> {
       setState(() {
         _searchResults = filteredResults;
         _totalCount = filteredResults.length;
-        _isLoading = false;
+        // _isLoading = false; // ここではローディングを制御しない
       });
     } catch (e) {
       setState(() {
-        _isLoading = false;
+        // _isLoading = false; // ここではローディングを制御しない
         _searchResults = [];
       });
     }
@@ -366,7 +375,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
       }
       final result = await query.limit(_currentLimit);
       
-      // 自分自身、ブロック関係、プライバシー設定ユーザーを除外
+      // 自分自身、ブロック関係、プライバシー設定ユーザー、いいね済みユーザーを除外
       final filteredResults = result.where((user) {
         final userId = user['id'];
         
@@ -375,6 +384,9 @@ class _UserSearchPageState extends State<UserSearchPage> {
         
         // ブロック関係を除外
         if (_blockedUserIds.contains(userId)) return false;
+        
+        // いいね済みユーザーを除外
+        if (_likedUsers.contains(userId)) return false;
         
         // 身内バレ防止機能: 相手がhide_from_same_school = trueかつ同じ学校の場合は除外
         if (user['hide_from_same_school'] == true && 
@@ -433,7 +445,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('いいねは取り消すことができません'),
-          backgroundColor: Colors.orange,
+          backgroundColor: Colors.grey,
           duration: Duration(seconds: 2),
         ),
       );
@@ -603,16 +615,20 @@ class _UserSearchPageState extends State<UserSearchPage> {
   // 学校検索機能
   Future<void> _searchSchools(String query) async {
     if (query.trim().length < 2) {
-      setState(() {
-        _schoolSearchResults = [];
-        _isSearchingSchools = false;
-      });
+      if (mounted) {
+        setState(() {
+          _schoolSearchResults = [];
+          _isSearchingSchools = false;
+        });
+      }
       return;
     }
 
-    setState(() {
-      _isSearchingSchools = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isSearchingSchools = true;
+      });
+    }
 
     try {
       final functions = FirebaseFunctions.instance;
@@ -624,9 +640,13 @@ class _UserSearchPageState extends State<UserSearchPage> {
 
       if (mounted) {
         setState(() {
-          _schoolSearchResults = List<Map<String, dynamic>>.from(
-            result.data['schools'] ?? []
-          );
+          final schoolsData = result.data['schools'] ?? [];
+          _schoolSearchResults = schoolsData.map<Map<String, dynamic>>((school) {
+            if (school is Map) {
+              return Map<String, dynamic>.from(school);
+            }
+            return <String, dynamic>{};
+          }).toList();
           _isSearchingSchools = false;
         });
       }
@@ -644,16 +664,20 @@ class _UserSearchPageState extends State<UserSearchPage> {
   // ダイアログ内での学校検索機能
   Future<void> _searchSchoolsInDialog(String query, Function setDialogState) async {
     if (query.trim().length < 2) {
-      setDialogState(() {
-        _schoolSearchResults = [];
-        _isSearchingSchools = false;
-      });
+      if (mounted) {
+        setDialogState(() {
+          _schoolSearchResults = [];
+          _isSearchingSchools = false;
+        });
+      }
       return;
     }
 
-    setDialogState(() {
-      _isSearchingSchools = true;
-    });
+    if (mounted) {
+      setDialogState(() {
+        _isSearchingSchools = true;
+      });
+    }
 
     try {
       final functions = FirebaseFunctions.instance;
@@ -663,18 +687,26 @@ class _UserSearchPageState extends State<UserSearchPage> {
         'limit': 20,
       });
 
-      setDialogState(() {
-        _schoolSearchResults = List<Map<String, dynamic>>.from(
-          result.data['schools'] ?? []
-        );
-        _isSearchingSchools = false;
-      });
+      if (mounted) {
+        setDialogState(() {
+          final schoolsData = result.data['schools'] ?? [];
+          _schoolSearchResults = schoolsData.map<Map<String, dynamic>>((school) {
+            if (school is Map) {
+              return Map<String, dynamic>.from(school);
+            }
+            return <String, dynamic>{};
+          }).toList();
+          _isSearchingSchools = false;
+        });
+      }
     } catch (e) {
       print('学校検索エラー: $e');
-      setDialogState(() {
-        _schoolSearchResults = [];
-        _isSearchingSchools = false;
-      });
+      if (mounted) {
+        setDialogState(() {
+          _schoolSearchResults = [];
+          _isSearchingSchools = false;
+        });
+      }
     }
   }
 
@@ -705,7 +737,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ユーザー検索'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFF6BFBC),
         foregroundColor: Colors.white,
         leading: kIsWeb ? IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -724,6 +756,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -1062,8 +1095,10 @@ class _UserSearchPageState extends State<UserSearchPage> {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: _mbtiTypes.map((mbti) {
+                                    final index = _mbtiTypes.indexOf(mbti);
+                                    final typeName = _mbtiTypeNames[index];
                                     return ChoiceChip(
-                                      label: Text(mbti),
+                                      label: Text('$mbti（$typeName）'),
                                       selected: tempMbti == mbti,
                                       onSelected: (selected) {
                                         setDialogState(() {
@@ -1246,6 +1281,14 @@ class _UserSearchPageState extends State<UserSearchPage> {
                                     TextButton(
                                       child: const Text('キャンセル'),
                                       onPressed: () => Navigator.of(context).pop(),
+                                    ),
+                                    ElevatedButton(
+                                      child: const Text('決定'),
+                                      onPressed: () => Navigator.of(context).pop(),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.grey[600],
+                                        foregroundColor: Colors.white,
+                                      ),
                                     ),
                                   ],
                                 );
@@ -1493,9 +1536,13 @@ class _UserSearchPageState extends State<UserSearchPage> {
                                               },
                                               child: Container(
                                                 padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: isLiked ? const Color(0xFFF6BFBC) : Colors.white,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
                                                 child: Icon(
                                                   isLiked ? Icons.favorite : Icons.favorite_border,
-                                                  color: Colors.pink,
+                                                  color: isLiked ? Colors.white : Colors.grey,
                                                   size: 24,
                                                 ),
                                               ),

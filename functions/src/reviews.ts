@@ -21,6 +21,47 @@ async function getUserUuidFromFirebaseUid(firebaseUid: string): Promise<string |
   }
 }
 
+// ユーザーが特定のレストランにレビューを投稿済みかチェック
+export const checkUserReview = functions.https.onCall(
+  async (request: CallableRequest<{
+    restaurantId: string;
+  }>) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "ログインが必要です");
+    }
+
+    const firebaseUid = request.auth.uid;
+    const {restaurantId} = request.data;
+
+    if (!restaurantId) {
+      throw new HttpsError("invalid-argument", "レストランIDが必要です");
+    }
+
+    try {
+      // Firebase UIDからユーザーのUUID IDを取得
+      const userUuid = await getUserUuidFromFirebaseUid(firebaseUid);
+      if (!userUuid) {
+        throw new HttpsError("not-found", "ユーザーが見つかりません");
+      }
+
+      // 既存のレビューをチェック
+      const existingReview = await pool.query(
+        `SELECT id FROM restaurant_reviews 
+         WHERE user_id = $1 AND restaurant_id = $2`,
+        [userUuid, restaurantId]
+      );
+
+      return {
+        hasReviewed: existingReview.rows.length > 0,
+        reviewId: existingReview.rows.length > 0 ? existingReview.rows[0].id : null,
+      };
+    } catch (error) {
+      console.error("❌ レビューチェックエラー:", error);
+      throw new HttpsError("internal", "レビューチェックに失敗しました");
+    }
+  }
+);
+
 // レビュー投稿
 export const submitRestaurantReview = functions.https.onCall(
   async (request: CallableRequest<{
@@ -98,9 +139,15 @@ export const submitRestaurantReview = functions.https.onCall(
         message: "レビューを投稿しました",
       };
     } catch (error) {
-    // エラーハンドリング
+      // エラーハンドリング
       console.error("❌ レビュー投稿エラー:", error);
-      throw new HttpsError("internal", "レビューの投稿に失敗しました");
+
+      // より詳細なエラー情報を提供
+      if (error instanceof Error) {
+        throw new HttpsError("internal", `レビューの投稿に失敗しました: ${error.message}`);
+      } else {
+        throw new HttpsError("internal", "レビューの投稿に失敗しました");
+      }
     }
   }
 );
@@ -116,6 +163,7 @@ export const getRestaurantReviews = functions.https.onCall(
       throw new HttpsError("unauthenticated", "ログインが必要です");
     }
 
+    const firebaseUid = request.auth.uid;
     const {restaurantId, limit = 20, offset = 0} = request.data;
 
     if (!restaurantId) {
@@ -123,6 +171,12 @@ export const getRestaurantReviews = functions.https.onCall(
     }
 
     try {
+      // Firebase UIDからユーザーのUUID IDを取得
+      const userUuid = await getUserUuidFromFirebaseUid(firebaseUid);
+      if (!userUuid) {
+        throw new HttpsError("not-found", "ユーザーが見つかりません");
+      }
+
       // レビュー一覧を取得
       const reviewsResult = await pool.query(
         `SELECT 
@@ -138,14 +192,16 @@ export const getRestaurantReviews = functions.https.onCall(
            u.name as user_name,
            u.image_url as user_image_url,
            lgb.badge_level,
-           lgb.total_score
+           lgb.total_score,
+           CASE WHEN rl.id IS NOT NULL THEN true ELSE false END as is_liked
          FROM restaurant_reviews r
          JOIN users u ON r.user_id = u.id
          LEFT JOIN local_guide_badges lgb ON r.user_id = lgb.user_id
-         WHERE r.restaurant_id = $1
+         LEFT JOIN review_likes rl ON r.id = rl.review_id AND rl.user_id = $1
+         WHERE r.restaurant_id = $2
          ORDER BY r.created_at DESC
-         LIMIT $2 OFFSET $3`,
-        [restaurantId, limit, offset]
+         LIMIT $3 OFFSET $4`,
+        [userUuid, restaurantId, limit, offset]
       );
 
       // 総レビュー数と平均評価を取得
@@ -242,6 +298,12 @@ export const likeReview = functions.https.onCall(
         [reviewId, userUuid]
       );
 
+      // レビューのhelpful_countを更新
+      await pool.query(
+        "UPDATE restaurant_reviews SET helpful_count = helpful_count + 1 WHERE id = $1",
+        [reviewId]
+      );
+
       // レビュー投稿者の地元案内人バッジの得点を更新
       await updateLocalGuideScore(reviewResult.rows[0].user_id, "helpful");
 
@@ -290,6 +352,12 @@ export const unlikeReview = functions.https.onCall(
       if (deleteResult.rowCount === 0) {
         throw new HttpsError("not-found", "いいねが見つかりません");
       }
+
+      // レビューのhelpful_countを更新
+      await pool.query(
+        "UPDATE restaurant_reviews SET helpful_count = GREATEST(helpful_count - 1, 0) WHERE id = $1",
+        [reviewId]
+      );
 
 
       return {
@@ -401,7 +469,7 @@ async function updateLocalGuideScore(
 
     let pointsToAdd = 0;
     const updateFields: string[] = [];
-    const updateValues: any[] = [userUuid];
+    const updateValues: unknown[] = [userUuid];
 
     if (badgeResult.rows.length === 0) {
       // バッジが存在しない場合は新規作成
@@ -455,10 +523,35 @@ async function updateLocalGuideScore(
        WHERE user_id = $1`,
       updateValues
     );
+
+    // バッジレベルを更新
+    const newTotalScore = badgeResult.rows[0].total_score + pointsToAdd;
+    let newBadgeLevel = "bronze";
+
+    if (newTotalScore >= 200) {
+      newBadgeLevel = "platinum";
+    } else if (newTotalScore >= 100) {
+      newBadgeLevel = "gold";
+    } else if (newTotalScore >= 50) {
+      newBadgeLevel = "silver";
+    }
+
+    await pool.query(
+      `UPDATE local_guide_badges 
+       SET badge_level = $1
+       WHERE user_id = $2`,
+      [newBadgeLevel, userUuid]
+    );
   } catch (error) {
     // エラーハンドリング
     console.error("❌ バッジ得点更新エラー:", error);
-    throw error;
+
+    // より詳細なエラー情報を提供
+    if (error instanceof Error) {
+      throw new Error(`バッジ得点更新エラー: ${error.message}`);
+    } else {
+      throw new Error("バッジ得点更新エラー");
+    }
   }
 }
 

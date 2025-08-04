@@ -347,7 +347,7 @@ class _BadgePhotoSetupPageState extends State<BadgePhotoSetupPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.restaurant.name}のバッジ写真'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           if (_photoUrls.any((url) => url != null))
@@ -460,7 +460,7 @@ class _BadgePhotoSetupPageState extends State<BadgePhotoSetupPage> {
                     decoration: BoxDecoration(
                       color: Colors.orange[50],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange[200]!),
+                      border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

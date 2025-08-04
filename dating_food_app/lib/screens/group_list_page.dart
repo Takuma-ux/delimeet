@@ -519,7 +519,7 @@ class _GroupListPageState extends State<GroupListPage> {
             color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.pink[400],
+        backgroundColor: const Color(0xFFF6BFBC),
         elevation: 0,
         actions: [
           IconButton(
@@ -552,7 +552,7 @@ class _GroupListPageState extends State<GroupListPage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                      valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFF6BFBC)),
                     ),
                   );
                 }
@@ -630,7 +630,7 @@ class _GroupListPageState extends State<GroupListPage> {
                           icon: const Icon(Icons.add),
                           label: const Text('グループを作成'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.pink[400],
+                            backgroundColor: const Color(0xFFF6BFBC),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
@@ -669,7 +669,7 @@ class _GroupListPageState extends State<GroupListPage> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isInvited 
-            ? BorderSide(color: Colors.orange[300]!, width: 1)
+            ? BorderSide(color: Colors.grey[300]!, width: 1)
             : BorderSide.none,
       ),
       child: InkWell(
@@ -836,7 +836,7 @@ class _GroupListPageState extends State<GroupListPage> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink[400],
+                          backgroundColor: const Color(0xFFFFFACD),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),

@@ -8,14 +8,14 @@ class SchedulePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('予定'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
       ),
       body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event, size: 64, color: Colors.pink),
+            Icon(Icons.event, size: 64, color: const Color(0xFFFFEFD5)),
             SizedBox(height: 20),
             Text(
               '予定',

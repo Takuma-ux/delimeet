@@ -65,7 +65,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   bool _visibleOnlyIfLiked = false;
 
   // マッチしたい人の特徴
-  String? _selectedPreferredAgeRange;
+  List<String> _selectedPreferredAgeRanges = [];
   String? _selectedPaymentPreference;
   String? _selectedPreferredGender;
 
@@ -106,10 +106,22 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     'split', 'pay', 'be_paid'
   ];
   static const List<String> _paymentPreferenceLabels = [
-    '割り勘希望', '奢りたい', '奢られたい'
+    '割り勘希望', '奢ってもいい', '奢られたい'
   ];
   static const List<String> _preferredGenders = [
     '男性', '女性', 'どちらでも'
+  ];
+  static const List<String> _mbtiTypes = [
+    'ISTJ', 'ISFJ', 'INFJ', 'INTJ',
+    'ISTP', 'ISFP', 'INFP', 'INTP',
+    'ESTP', 'ESFP', 'ENFP', 'ENTP',
+    'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ',
+  ];
+  static const List<String> _mbtiTypeNames = [
+    '管理者', '擁護者', '提唱者', '建築家',
+    '巨匠', '冒険者', '仲介者', '論理学者',
+    '起業家', 'エンターテイナー', '活動家', '討論者',
+    '幹部', '領事官', '主人公', '指揮官',
   ];
 
   // 年の選択肢を生成（現在年-100から現在年まで）
@@ -228,7 +240,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text('プロフィール設定 (${_currentPage + 1}/7)'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -249,7 +261,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                   child:                   LinearProgressIndicator(
                     value: (_currentPage + 1) / 7,
                     backgroundColor: Colors.grey.shade300,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                    valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFFFEFD5)),
                   ),
                 ),
                 // ページビュー
@@ -295,7 +307,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                         child: ElevatedButton(
                           onPressed: (_canProceed() && !_isRegistering) ? _handleNext : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.pink,
+                            backgroundColor: const Color(0xFFFFEFD5),
                             foregroundColor: Colors.white,
                           ),
                           child: _isRegistering && _currentPage == 4
@@ -423,7 +435,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                     _selectedGender = selected ? gender : null;
                   });
                 },
-                selectedColor: Colors.pink.shade100,
+                selectedColor: const Color(0xFFFDF5E6),
               );
             }).toList(),
           ),
@@ -642,7 +654,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                     _weekendOff = value;
                   });
                 },
-                activeColor: Colors.pink,
+                activeColor: const Color(0xFFFFEFD5),
               ),
             ],
           ),
@@ -697,8 +709,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                         }
                       });
                     },
-                    selectedColor: Colors.pink.shade100,
-                    checkmarkColor: Colors.pink,
+                    selectedColor: const Color(0xFFFDF5E6),
+                    checkmarkColor: const Color(0xFFFFEFD5),
                   );
                 }).toList(),
               ),
@@ -908,34 +920,30 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           
           // 年齢範囲選択
           const Text(
-            '年齢範囲',
+            '希望年齢範囲（複数選択可）',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String?>(
-            value: _selectedPreferredAgeRange,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.cake),
-            ),
-            hint: const Text('年齢範囲を選択'),
-            items: [
-              const DropdownMenuItem<String?>(
-                value: null,
-                child: Text('未設定'),
-              ),
-              ..._ageRanges.map((range) {
-                return DropdownMenuItem<String?>(
-                  value: range,
-                  child: Text(range),
-                );
-              }).toList(),
-            ],
-            onChanged: (value) {
+          Wrap(
+            spacing: 8,
+            children: _ageRanges.map((range) {
+              final isSelected = _selectedPreferredAgeRanges.contains(range);
+              return FilterChip(
+                label: Text(range),
+                selected: isSelected,
+                onSelected: (selected) {
               setState(() {
-                _selectedPreferredAgeRange = value;
+                    if (selected) {
+                      _selectedPreferredAgeRanges.add(range);
+                    } else {
+                      _selectedPreferredAgeRanges.remove(range);
+                    }
               });
             },
+                selectedColor: const Color(0xFFFDF5E6),
+                checkmarkColor: const Color(0xFFFFEFD5),
+              );
+            }).toList(),
           ),
           
           const SizedBox(height: 24),
@@ -1077,7 +1085,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                                       runSpacing: 4,
                                       children: _selectedCategories.map((cat) => Chip(
                                         label: Text(cat, style: const TextStyle(fontSize: 14)),
-                                        backgroundColor: Colors.pink.shade50,
+                                        backgroundColor: const Color(0xFFFDF5E6),
                                       )).toList(),
                                     )
                                   : const Text('未選択', style: TextStyle(fontSize: 16)),
@@ -1085,7 +1093,9 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                           ],
                         ),
                       ),
-                      _buildConfirmationItem('希望年齢範囲', _selectedPreferredAgeRange ?? '未設定'),
+                      _buildConfirmationItem('希望年齢範囲', _selectedPreferredAgeRanges.isNotEmpty 
+                           ? _selectedPreferredAgeRanges.join(', ') 
+                           : '未設定'),
                       _buildConfirmationItem('支払い方法', _getPaymentPreferenceLabel()),
                       _buildConfirmationItem('希望性別', _selectedPreferredGender ?? '未設定'),
                     ],
@@ -1147,8 +1157,16 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     if (_selectedPaymentPreference == null) {
       return '未設定';
     }
-    final index = _paymentPreferences.indexOf(_selectedPaymentPreference!);
-    return _paymentPreferenceLabels[index];
+    switch (_selectedPaymentPreference) {
+      case 'split':
+        return '割り勘希望';
+      case 'pay':
+        return '奢ってもいい';
+      case 'be_paid':
+        return '奢られたい';
+      default:
+        return '未設定';
+    }
   }
 
   bool _canProceed() {
@@ -1300,7 +1318,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                 shape: BoxShape.circle,
                 color: Colors.grey[300],
                 border: Border.all(
-                  color: Colors.pink,
+                  color: const Color(0xFFFFEFD5),
                   width: 2,
                 ),
               ),
@@ -1559,7 +1577,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         'email': email,
         'phoneNumber': phoneNumber,
         'image_url': imageUrl, // Firebase Storageのダウンロードリンク
-        'preferred_age_range': _selectedPreferredAgeRange,
+        'preferred_age_range': _selectedPreferredAgeRanges.join(','),
         'payment_preference': _selectedPaymentPreference,
         'preferred_gender': _selectedPreferredGender,
         'school_id': _selectedSchoolId,

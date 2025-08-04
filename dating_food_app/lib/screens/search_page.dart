@@ -12,7 +12,6 @@ import 'package:supabase_flutter/supabase_flutter.dart'; // Supabase追加
 import '../services/auth_service.dart';
 import '../services/web_image_helper.dart';
 import 'map_search_page.dart';
-import 'web_map_search_page.dart'; // Web版軽量地図ページ
 import 'group_list_page.dart';
 import 'restaurant_search_page.dart';
 import 'profile_view_page.dart';
@@ -39,8 +38,6 @@ class _SearchPageState extends State<SearchPage> {
   Set<String> _likedUsers = {};
   Set<String> _likedRestaurants = {};
   List<String> _userFavoriteCategories = [];
-  String _selectedAlgorithm = 'basic';  // レストランおすすめアルゴリズム選択
-  String _algorithmDescription = '';  // アルゴリズムの説明
   String? _accountStatus; // 追加: アカウント状態
 
   // 自分の情報（プライバシー機能用）
@@ -60,8 +57,8 @@ class _SearchPageState extends State<SearchPage> {
     _supabase = Supabase.instance.client;
     try {
       _initializeData();
-    } catch (e, stackTrace) {
-      // エラーハンドリング
+    } catch (e) {
+      // 初期化エラー
     }
   }
 
@@ -101,42 +98,58 @@ class _SearchPageState extends State<SearchPage> {
       // その他のデータをバックグラウンドで読み込み
       _loadAdditionalDataInBackground();
       
-    } catch (e, stackTrace) {
-      print('初期化エラー: $e');
-      if (mounted) {
-        setState(() {
-          _recommendedUsers = [];
-          _recommendedRestaurants = [];
-          _similarTasteUsers = [];
-        });
-      }
+      // いいね済みのユーザーとレストランを除外するフィルタリングを追加
+      _filterLikedItems();
+      
+    } catch (e) {
+      // 初期化エラー
     }
   }
 
-  // 追加データの背景読み込み（Web版軽量化）
+  // 追加データの背景読み込み（全プラットフォームで最適化）
   Future<void> _loadAdditionalDataInBackground() async {
     try {
-      if (kIsWeb) {
-        // Web版では最小限の処理のみ
-        await Future.wait([
-          _loadUserLikes(),
-          _loadUserProfile(),
-        ], eagerError: false).timeout(const Duration(seconds: 2));
-      } else {
-        // モバイル版では全ての処理
-        final additionalFutures = <Future<void>>[];
-        additionalFutures.add(_loadUserLikes());
-        additionalFutures.add(_loadUserProfile());
-        additionalFutures.add(_loadSimilarTasteUsers());
-        
-        await Future.wait(additionalFutures, eagerError: false)
-            .timeout(const Duration(seconds: 3));
-      }
+      // 全プラットフォームで最小限の処理のみ
+      await Future.wait([
+        _loadUserLikes(),
+        _loadUserProfile(),
+      ], eagerError: false).timeout(const Duration(seconds: 2));
+      
+      // いいねデータを読み込んだ後にフィルタリングを実行
+      _filterLikedItems();
               
         // キャッシュに保存（削除済み）
       
     } catch (e) {
       // エラーハンドリング
+    }
+  }
+
+  // いいね済みのユーザーとレストランを除外するフィルタリング
+  void _filterLikedItems() {
+    if (mounted) {
+      setState(() {
+        // いいね済みのユーザーを除外
+        _recommendedUsers = _recommendedUsers.where((user) {
+          final userId = user['id']?.toString();
+          return userId == null || !_likedUsers.contains(userId);
+        }).toList();
+        
+        // いいね済みのレストランを除外
+        _recommendedRestaurants = _recommendedRestaurants.where((restaurant) {
+          final restaurantId = restaurant['id']?.toString() ?? 
+                              restaurant['restaurant_id']?.toString() ?? 
+                              restaurant['hotpepper_id']?.toString() ?? 
+                              restaurant['shop_id']?.toString();
+          return restaurantId == null || !_likedRestaurants.contains(restaurantId);
+        }).toList();
+        
+        // いいね済みのユーザーを除外（同じレストランが好きな人）
+        _similarTasteUsers = _similarTasteUsers.where((user) {
+          final userId = user['user_id']?.toString() ?? user['id']?.toString();
+          return userId == null || !_likedUsers.contains(userId);
+        }).toList();
+      });
     }
   }
 
@@ -151,9 +164,10 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5), // 統一されたグレー背景色
       appBar: AppBar(
         title: const Text('探す'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFF274A78),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -218,9 +232,11 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
     else {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      return Container(
+        color: const Color(0xFFF5F5F5), // 統一されたグレー背景色
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // メインボタン（常に表示）
@@ -232,7 +248,7 @@ class _SearchPageState extends State<SearchPage> {
                       child: _buildMainButton(
                         icon: Icons.restaurant,
                         label: 'レストランを探す',
-                        color: Colors.pink[400],
+                        color: const Color(0xFFFDDEA5),
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -246,7 +262,7 @@ class _SearchPageState extends State<SearchPage> {
                       child: _buildMainButton(
                         icon: Icons.person,
                         label: 'ユーザーを探す',
-                        color: Colors.blue[400],
+                        color: const Color(0xFFF6BFBC),
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -298,9 +314,9 @@ class _SearchPageState extends State<SearchPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.orange[50],
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange[200]!),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: Text(
                   'あなたと同じレストランをいいねした人たちです',
@@ -333,25 +349,6 @@ class _SearchPageState extends State<SearchPage> {
               const SizedBox(height: 24),
               _buildRestaurantSectionHeader(),
               const SizedBox(height: 12),
-              if (_algorithmDescription.isNotEmpty && _selectedAlgorithm == 'date_success') ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue[200]!),
-                  ),
-                  child: Text(
-                    _algorithmDescription,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue[700],
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
               SizedBox(
                 height: 220, // カードの高さに合わせて調整
                 child: ListView.builder(
@@ -368,6 +365,7 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ],
           ],
+        ),
         ),
       );
     }
@@ -386,7 +384,7 @@ class _SearchPageState extends State<SearchPage> {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: color ?? Colors.pink[300],
+          backgroundColor: color ?? const Color(0xFFFFFACD),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -482,41 +480,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildRestaurantSectionHeader() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSectionTitle('おすすめのレストラン'),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue[200]!),
-          ),
-          child: DropdownButton<String>(
-            value: _selectedAlgorithm,
-            items: const [
-              DropdownMenuItem(value: 'basic', child: Text('基本')),
-              // DropdownMenuItem(value: 'collaborative', child: Text('協調')), // 十分なユーザーデータが蓄積されるまで一時的に非表示
-              DropdownMenuItem(value: 'date_success', child: Text('成功率')),
-            ],
-            onChanged: (String? newValue) {
-              if (newValue != null && newValue != _selectedAlgorithm) {
-                _loadRecommendationsWithAlgorithm(newValue);
-              }
-            },
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.blue[700],
-            ),
-            underline: const SizedBox(),
-            isDense: true,
-          ),
-        ),
-      ],
-    );
+    return _buildSectionTitle('おすすめのレストラン');
   }
 
   Widget _buildErrorCard() {
@@ -525,7 +489,7 @@ class _SearchPageState extends State<SearchPage> {
       height: 120, // 統一された高さ（160→120）
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: const Color(0xFFF5F5F5), // 統一されたグレー背景色
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey[300]!),
       ),
@@ -583,7 +547,7 @@ class _SearchPageState extends State<SearchPage> {
             height: 200, // 統一された高さ
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFF5F5F5), // 統一されたグレー背景色
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -660,7 +624,7 @@ class _SearchPageState extends State<SearchPage> {
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: isLiked ? const Color(0xFFF6BFBC) : Colors.white,
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
@@ -672,7 +636,7 @@ class _SearchPageState extends State<SearchPage> {
                                   ),
                                   child: Icon(
                                     isLiked ? Icons.favorite : Icons.favorite_border,
-                                    color: isLiked ? Colors.red : Colors.grey,
+                                    color: isLiked ? Colors.white : Colors.grey,
                                     size: 18,
                                   ),
                                 ),
@@ -752,7 +716,7 @@ class _SearchPageState extends State<SearchPage> {
             height: 200, // 高さを元に戻す（190→200）
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFF5F5F5), // 統一されたグレー背景色
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -972,8 +936,8 @@ class _SearchPageState extends State<SearchPage> {
             (data['restaurants'] as List<dynamic>? ?? [])
                 .map((item) => Map<String, dynamic>.from(item as Map))
           );
-          _algorithmDescription = data['description']?.toString() ?? '';
-          _selectedAlgorithm = algorithm;
+          // _algorithmDescription = data['description']?.toString() ?? ''; // 削除
+          // _selectedAlgorithm = algorithm; // 削除
         });
       }
     } catch (e) {
@@ -995,8 +959,8 @@ class _SearchPageState extends State<SearchPage> {
                 (fallbackData['restaurants'] as List<dynamic>? ?? [])
                     .map((item) => Map<String, dynamic>.from(item as Map))
               );
-              _algorithmDescription = '協調フィルタリングでエラーが発生したため、基本推薦を表示しています';
-              _selectedAlgorithm = algorithm; // 元のアルゴリズムを維持
+              // _algorithmDescription = '協調フィルタリングでエラーが発生したため、基本推薦を表示しています'; // 削除
+              // _selectedAlgorithm = algorithm; // 削除
             });
             
           }
@@ -1004,7 +968,7 @@ class _SearchPageState extends State<SearchPage> {
           if (mounted) {
             setState(() {
               _recommendedRestaurants = [];
-              _algorithmDescription = '協調フィルタリングでエラーが発生しました';
+              // _algorithmDescription = '協調フィルタリングでエラーが発生しました'; // 削除
             });
           }
         }
@@ -1012,7 +976,7 @@ class _SearchPageState extends State<SearchPage> {
         if (mounted) {
           setState(() {
             _recommendedRestaurants = [];
-            _algorithmDescription = 'エラーが発生しました';
+            // _algorithmDescription = 'エラーが発生しました'; // 削除
           });
         }
       }
@@ -1423,9 +1387,9 @@ class _SearchPageState extends State<SearchPage> {
           height: 200, // 統一された高さ
           margin: const EdgeInsets.only(right: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFFF5F5F5), // 統一されたグレー背景色
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.orange[200]!, width: 1),
+            border: Border.all(color: Colors.grey[200]!, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.1),
@@ -1481,7 +1445,7 @@ class _SearchPageState extends State<SearchPage> {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.9),
+                              color: isLiked ? const Color(0xFFF6BFBC) : Colors.white.withValues(alpha: 0.9),
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
@@ -1493,7 +1457,7 @@ class _SearchPageState extends State<SearchPage> {
                             ),
                             child: Icon(
                               isLiked ? Icons.favorite : Icons.favorite_border,
-                              color: isLiked ? Colors.red : Colors.grey,
+                              color: isLiked ? Colors.white : Colors.grey,
                               size: 18,
                             ),
                           ),
@@ -1699,11 +1663,16 @@ class _SearchPageState extends State<SearchPage> {
       final currentUserGender = userResult['gender']?.toString();
       final currentUserAge = userResult['age'];
 
+      // 年齢範囲を配列に変換
+      List<String> preferredAgeRanges = [];
+      if (preferredAgeRange != null && preferredAgeRange.isNotEmpty) {
+        preferredAgeRanges = preferredAgeRange.split(',').map((e) => e.trim()).toList();
+      }
 
       // まず絞り込み条件で候補者を取得
       List<Map<String, dynamic>> filteredUsers = await _getFilteredUsers(
         userUuid, 
-        preferredAgeRange, 
+        preferredAgeRanges, 
         preferredGender, 
         paymentPreference,
         currentUserGender,
@@ -1754,7 +1723,7 @@ class _SearchPageState extends State<SearchPage> {
   // 絞り込み条件でユーザーを取得
   Future<List<Map<String, dynamic>>> _getFilteredUsers(
     String userUuid,
-    String? preferredAgeRange,
+    List<String> preferredAgeRanges,
     String? preferredGender,
     String? paymentPreference,
     String? currentUserGender,
@@ -1793,18 +1762,54 @@ class _SearchPageState extends State<SearchPage> {
         query = query.or('preferred_gender.eq.$currentUserGender,preferred_gender.eq.どちらでも,preferred_gender.is.null');
       }
 
+      // 希望年齢範囲でフィルタリング（複数選択対応）
+      if (preferredAgeRanges.isNotEmpty) {
+        List<Map<String, int>> ageRanges = [];
+        
+        for (final ageRange in preferredAgeRanges) {
+          if (ageRange.isNotEmpty) {
+            ageRanges.add(_parseAgeRange(ageRange));
+          }
+        }
+        
+        if (ageRanges.isNotEmpty) {
+          // 最初の年齢範囲でフィルタリング（複数範囲の場合はOR条件が必要だが、簡易的に最初の範囲を使用）
+          final firstRange = ageRanges.first;
+          query = query.gte('age', firstRange['min']!);
+          query = query.lte('age', firstRange['max']!);
+        }
+      }
+
       final candidates = await query.limit(50); // 多めに取得してから年齢と支払い条件で絞り込み
 
-      // 年齢範囲でフィルタリング
+      // 年齢範囲でフィルタリング（複数範囲対応）
       List<Map<String, dynamic>> ageFilteredUsers = [];
-      if (preferredAgeRange != null && preferredAgeRange.isNotEmpty) {
-        final ageRange = _parseAgeRange(preferredAgeRange);
+      if (preferredAgeRanges.isNotEmpty) {
+        List<Map<String, int>> ageRanges = [];
+        
+        for (final ageRange in preferredAgeRanges) {
+          if (ageRange.isNotEmpty) {
+            ageRanges.add(_parseAgeRange(ageRange));
+          }
+        }
+        
         for (final candidate in candidates) {
           final age = candidate['age'];
-          if (age != null && age >= ageRange['min']! && age <= ageRange['max']!) {
-            // 相手も自分の年齢を希望範囲に含んでいるかチェック
-            if (_isUserInTargetAgeRange(candidate, currentUserAge)) {
-              ageFilteredUsers.add(candidate);
+          if (age != null) {
+            // 複数の年齢範囲のいずれかに該当するかチェック
+            bool isInAnyRange = false;
+            for (final ageRange in ageRanges) {
+              if (age >= ageRange['min']! && age <= ageRange['max']!) {
+                isInAnyRange = true;
+                break;
+              }
+            }
+            
+            if (isInAnyRange) {
+              // 相手も自分の年齢を希望範囲に含んでいるかチェック
+              if (_isUserInTargetAgeRange(candidate, currentUserAge)) {
+                ageFilteredUsers.add(candidate);
+              }
             }
           }
         }
@@ -1907,8 +1912,24 @@ class _SearchPageState extends State<SearchPage> {
       return true; // 相手に年齢希望がない場合は含める
     }
 
-    final ageRange = _parseAgeRange(candidatePreferredAgeRange);
-    return currentUserAge >= ageRange['min']! && currentUserAge <= ageRange['max']!;
+    List<Map<String, int>> ageRanges = [];
+    
+    // カンマ区切りの文字列を配列に変換
+    final ageRangeStrings = candidatePreferredAgeRange.split(',').map((e) => e.trim()).toList();
+    for (final ageRangeString in ageRangeStrings) {
+      if (ageRangeString.isNotEmpty) {
+        ageRanges.add(_parseAgeRange(ageRangeString));
+      }
+    }
+    
+    // 複数の年齢範囲のいずれかに該当するかチェック
+    for (final ageRange in ageRanges) {
+      if (currentUserAge >= ageRange['min']! && currentUserAge <= ageRange['max']!) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   // 支払い設定による優先順位比較
@@ -1922,19 +1943,19 @@ class _SearchPageState extends State<SearchPage> {
 
     int getPaymentPriority(String candidatePayment, String userPref) {
       switch (userPref) {
-        case 'pay': // 奢りたい人
+        case 'pay': // 奢ってもいい人
           if (candidatePayment == 'be_paid') return 1; // 奢られたい人を最優先
           if (candidatePayment == 'split') return 2; // 割り勘希望を次
-          if (candidatePayment == 'pay') return 3; // 同じ奢りたい人を最後
+          if (candidatePayment == 'pay') return 3; // 同じ奢ってもいい人を最後
           return 4; // 未設定
         case 'be_paid': // 奢られたい人
-          if (candidatePayment == 'pay') return 1; // 奢りたい人を最優先
+          if (candidatePayment == 'pay') return 1; // 奢ってもいい人を最優先
           if (candidatePayment == 'split') return 2; // 割り勘希望を次
           if (candidatePayment == 'be_paid') return 3; // 同じ奢られたい人を最後
           return 4; // 未設定
         case 'split': // 割り勘希望
           if (candidatePayment == 'split') return 1; // 同じ割り勘希望を最優先
-          if (candidatePayment == 'pay') return 2; // 奢りたい人を次
+          if (candidatePayment == 'pay') return 2; // 奢ってもいい人を次
           if (candidatePayment == 'be_paid') return 3; // 奢られたい人を次
           return 4; // 未設定
         default:

@@ -681,7 +681,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               color: Colors.white,
             ),
           ),
-          backgroundColor: Colors.pink[400],
+          backgroundColor: const Color(0xFFF6BFBC),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.close, color: Colors.white),
@@ -728,7 +728,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.pink[400]!),
+                      borderSide: BorderSide(color: const Color(0xFFFFFACD)),
                     ),
                   ),
                   validator: (value) {
@@ -755,7 +755,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.pink[400]!),
+                      borderSide: BorderSide(color: const Color(0xFFFFFACD)),
                     ),
                   ),
                   maxLines: 3,
@@ -805,7 +805,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                                 _isPrivate = value;
                               });
                             },
-                            activeColor: Colors.pink[400],
+                            activeColor: const Color(0xFFFFFACD),
                           ),
                         ],
                       ),
@@ -1076,8 +1076,8 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                                   _selectedTags.remove(tag);
                                 });
                               },
-                              backgroundColor: Colors.pink[100],
-                              deleteIconColor: Colors.pink[700],
+                              backgroundColor: const Color(0xFFFDF5E6),
+                              deleteIconColor: const Color(0xFFF6BFBC),
                             );
                           }).toList(),
                         ),
@@ -1090,8 +1090,8 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                         icon: const Icon(Icons.tag),
                         label: Text(_selectedTags.isEmpty ? 'ハッシュタグを選択' : 'ハッシュタグを追加'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.pink[400],
-                          side: BorderSide(color: Colors.pink[400]!),
+                          foregroundColor: const Color(0xFFF6BFBC),
+                          side: BorderSide(color: const Color(0xFFF6BFBC)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -1106,7 +1106,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                 ElevatedButton(
                   onPressed: _isCreating ? null : _createGroup,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink[400],
+                    backgroundColor: const Color(0xFFF6BFBC),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

@@ -120,18 +120,31 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // ユーザーが既にレビューを投稿しているかチェック
-      final hasReviewed = _reviews.any((review) {
-        // レビュー投稿者のIDを確認（実装に応じて調整）
-        return review['user_id'] == user.uid || review['user_name'] == user.displayName;
+      // Cloud Functionsからレビューチェック
+      final callable = FirebaseFunctions.instance.httpsCallable('checkUserReview');
+      final result = await callable.call({
+        'restaurantId': widget.restaurant.id,
       });
 
       if (mounted) {
         setState(() {
-          _hasUserReviewed = hasReviewed;
+          _hasUserReviewed = result.data['hasReviewed'] ?? false;
         });
       }
     } catch (e) {
+      print("レビューチェックエラー: $e");
+      // エラー時は既存のローカルチェックを使用
+      if (mounted) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final hasReviewed = _reviews.any((review) {
+            return review['user_id'] == user.uid || review['user_name'] == user.displayName;
+          });
+          setState(() {
+            _hasUserReviewed = hasReviewed;
+          });
+        }
+      }
     }
   }
 
@@ -243,7 +256,22 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     }
   }
 
-  void _showReviewDialog() {
+  void _showReviewDialog() async {
+    // レビューチェックを最新の状態に更新
+    await _checkUserReview();
+    
+    // 既にレビューを投稿している場合はモーダルを開かない
+    if (_hasUserReviewed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('既にこのレストランのレビューを投稿済みです'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
     showDialog(
       context: context,
       builder: (context) => ReviewDialog(
@@ -260,16 +288,18 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     );
   }
 
-  void _likeReview(String reviewId) async {
+  void _likeReview(String reviewId, bool isLiked) async {
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('likeReview');
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        isLiked ? 'unlikeReview' : 'likeReview'
+      );
       await callable.call({'reviewId': reviewId});
       
       // レビュー一覧を再読み込み
       _loadReviews();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('いいねに失敗しました: $e')),
+        SnackBar(content: Text('いいね操作に失敗しました: $e')),
       );
     }
   }
@@ -345,7 +375,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.restaurant.name),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           // いいねボタン
@@ -547,7 +577,7 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                             icon: const Icon(Icons.rate_review),
                             label: const Text('レビューを書く'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.pink,
+                              backgroundColor: const Color(0xFFFFEFD5),
                               foregroundColor: Colors.white,
                             ),
                           ),
@@ -563,9 +593,9 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
               color: Colors.grey[100],
               child: TabBar(
                 controller: _tabController,
-                labelColor: Colors.pink,
+                labelColor: const Color(0xFFF2C9AC),
                 unselectedLabelColor: Colors.grey[600],
-                indicatorColor: Colors.pink,
+                indicatorColor: const Color(0xFFF2C9AC),
                 tabs: const [
                   Tab(text: 'レビュー'),
                   Tab(text: '地元案内人'),
@@ -681,6 +711,12 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
               final isGroupDate = review['is_group_date'] as bool? ?? false;
               final isOrganizer = review['is_organizer'] as bool? ?? false;
               final badgeLevel = review['badge_level'] as String?;
+              final isLiked = review['is_liked'] as bool? ?? false;
+              
+              // 現在のユーザーIDを取得
+              final currentUser = FirebaseAuth.instance.currentUser;
+              final currentUserId = currentUser?.uid;
+              final isOwnReview = currentUserId != null && userId == currentUserId;
               
               // visit_dateのガード
               String? visitDateStr;
@@ -832,11 +868,27 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                       ],
                       // 訪問日
                       if (visitDateStr != null) ...[
-                        Text(
-                          '訪問日: ${DateFormat('yyyy年MM月dd日').format(DateTime.parse(visitDateStr))}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.calendar_today, size: 14, color: Colors.orange[700]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '訪問日: ${DateFormat('yyyy年MM月dd日').format(DateTime.parse(visitDateStr))}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange[700],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -857,13 +909,24 @@ class _RestaurantDetailPageState extends State<RestaurantDetailPage>
                           Row(
                             children: [
                               IconButton(
-                                onPressed: () => _likeReview(review['id']),
-                                icon: const Icon(Icons.thumb_up_outlined),
+                                onPressed: isOwnReview ? null : () => _likeReview(review['id'], isLiked),
+                                icon: Icon(
+                                  isOwnReview 
+                                    ? Icons.thumb_up 
+                                    : (isLiked ? Icons.thumb_up : Icons.thumb_up_outlined),
+                                  color: isOwnReview ? Colors.grey : (isLiked ? Colors.blue : null),
+                                ),
                                 iconSize: 20,
+                                tooltip: isOwnReview 
+                                  ? '自分のレビューにはいいねできません' 
+                                  : (isLiked ? 'いいね済み' : 'いいね'),
                               ),
                               Text(
                                 helpfulCount.toString(),
-                                style: const TextStyle(fontSize: 12),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isOwnReview ? Colors.grey : null,
+                                ),
                               ),
                             ],
                           ),
@@ -1341,22 +1404,51 @@ class _ReviewDialogState extends State<ReviewDialog> {
   }
 
   Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _visitDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      locale: const Locale('ja'), // 日本語化
-    );
-    if (picked != null && picked != _visitDate) {
-      setState(() {
-        _visitDate = picked;
-      });
+    if (!mounted) return;
+    
+    try {
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: _visitDate ?? DateTime.now(),
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now(),
+        locale: const Locale('ja', 'JP'), // 日本語化を復活
+      );
+      
+      if (mounted && picked != null && picked != _visitDate) {
+        setState(() {
+          _visitDate = picked;
+        });
+      }
+    } catch (e, stackTrace) {
+      if (mounted) {
+        // エラーが発生した場合は現在の日付を設定
+        setState(() {
+          _visitDate = DateTime.now();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('日付選択でエラーが発生しました: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _submitReview() async {
     if (_isSubmitting) return;
+
+    // バリデーション: 訪問日が必須
+    if (_visitDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('訪問日を選択してください'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -1368,7 +1460,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
         'restaurantId': widget.restaurant.id,
         'rating': _rating,
         'comment': _commentController.text.trim(),
-        'visitDate': _visitDate?.toIso8601String().split('T')[0],
+        'visitDate': _visitDate!.toIso8601String().split('T')[0],
         'dateRequestId': widget.dateRequestId,
         'isGroupDate': widget.isGroupDate,
         'isOrganizer': widget.isOrganizer,
@@ -1432,27 +1524,58 @@ class _ReviewDialogState extends State<ReviewDialog> {
             const SizedBox(height: 16),
             
             // 訪問日
-            const Text(
-              '訪問日',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                const Text(
+                  '訪問日',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '必須',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             InkWell(
-              onTap: _selectDate,
+              onTap: () {
+                _selectDate();
+              },
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(
+                    color: _visitDate == null ? Colors.red : Colors.grey,
+                    width: _visitDate == null ? 2 : 1,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today),
+                    Icon(
+                      Icons.calendar_today,
+                      color: _visitDate == null ? Colors.red : Colors.grey[600],
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      _visitDate != null
+                      _visitDate != null && _visitDate is DateTime
                           ? DateFormat('yyyy年MM月dd日').format(_visitDate!)
-                          : '日付を選択',
+                          : '日付を選択してください',
+                      style: TextStyle(
+                        color: _visitDate == null ? Colors.red : Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -1484,7 +1607,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
           child: const Text('キャンセル'),
         ),
         ElevatedButton(
-          onPressed: _isSubmitting ? null : _submitReview,
+          onPressed: (_isSubmitting || _visitDate == null) ? null : _submitReview,
           child: _isSubmitting
               ? const SizedBox(
                   width: 16,

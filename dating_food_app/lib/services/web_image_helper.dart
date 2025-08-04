@@ -28,23 +28,95 @@ class WebImageHelper {
     }
   }
 
-  /// Web版用の最適化された画像取得
+  /// 統一的な画像取得（Web版ではプロキシ、モバイルではキャッシュ付き直接読み込み）
   static Future<MemoryImage?> getImageViaProxy(String imageUrl) async {
-    if (!kIsWeb) {
-      // Web版以外では通常のネットワーク画像を使用
-      return null;
-    }
-
-    // キャッシュチェック
+    // キャッシュチェック（全プラットフォームで使用）
     if (_imageCache.containsKey(imageUrl)) {
       return _imageCache[imageUrl];
     }
 
-    // Firebase Storageの画像は直接読み込み
-    if (imageUrl.contains('firebasestorage.googleapis.com')) {
+    if (kIsWeb) {
+      // Web版の処理（既存のまま）
+      // Firebase Storageの画像は直接読み込み
+      if (imageUrl.contains('firebasestorage.googleapis.com')) {
+        try {
+          final response = await http.get(Uri.parse(imageUrl)).timeout(
+            const Duration(seconds: 10),
+          );
+          
+          if (response.statusCode == 200) {
+            final bytes = response.bodyBytes;
+            final memoryImage = MemoryImage(bytes);
+            _imageCache[imageUrl] = memoryImage; // キャッシュに保存
+            _manageCacheSize(); // キャッシュサイズ管理
+            return memoryImage;
+          } else {
+            return null;
+          }
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // HotPepperの画像のみプロキシ経由（リトライ最小限）
+      final isHotPepperImage = imageUrl.contains('hotp.jp') || imageUrl.contains('hotpepper.jp');
+      final maxRetries = 1; // リトライ回数を削減
+      
+      for (int retryCount = 0; retryCount <= maxRetries; retryCount++) {
+        try {
+          // Firebase Functions のHTTPエンドポイントを直接呼び出し
+          const functionsBaseUrl = 'https://us-central1-dating-food-apps.cloudfunctions.net';
+          final uri = Uri.parse('$functionsBaseUrl/getImageProxy');
+          
+          final requestBody = jsonEncode({
+            'imageUrl': imageUrl,
+          });
+          
+          final response = await http.post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: requestBody,
+          ).timeout(
+            Duration(seconds: isHotPepperImage ? 12 : 8), // タイムアウトを短縮
+            onTimeout: () {
+              throw TimeoutException('リクエストタイムアウト');
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            
+            if (data['success'] == true && data['imageData'] != null) {
+              final String base64Data = data['imageData'];
+              final Uint8List bytes = base64Decode(base64Data);
+              final memoryImage = MemoryImage(bytes);
+              _imageCache[imageUrl] = memoryImage; // キャッシュに保存
+              _manageCacheSize(); // キャッシュサイズ管理
+              return memoryImage;
+            } else {
+              return null;
+            }
+          } else {
+            return null;
+          }
+        } on TimeoutException catch (e) {
+          if (retryCount < maxRetries) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            continue;
+          }
+          return null;
+        } catch (e) {
+          return null;
+        }
+      }
+    } else {
+      // モバイル版（iOS/Android）での画像キャッシュ
       try {
         final response = await http.get(Uri.parse(imageUrl)).timeout(
-          const Duration(seconds: 10),
+          const Duration(seconds: 8),
         );
         
         if (response.statusCode == 200) {
@@ -56,61 +128,6 @@ class WebImageHelper {
         } else {
           return null;
         }
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // HotPepperの画像のみプロキシ経由（リトライ最小限）
-    final isHotPepperImage = imageUrl.contains('hotp.jp') || imageUrl.contains('hotpepper.jp');
-    final maxRetries = 1; // リトライ回数を削減
-    
-    for (int retryCount = 0; retryCount <= maxRetries; retryCount++) {
-      try {
-        // Firebase Functions のHTTPエンドポイントを直接呼び出し
-        const functionsBaseUrl = 'https://us-central1-dating-food-apps.cloudfunctions.net';
-        final uri = Uri.parse('$functionsBaseUrl/getImageProxy');
-        
-        final requestBody = jsonEncode({
-          'imageUrl': imageUrl,
-        });
-        
-        final response = await http.post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: requestBody,
-        ).timeout(
-          Duration(seconds: isHotPepperImage ? 12 : 8), // タイムアウトを短縮
-          onTimeout: () {
-            throw TimeoutException('リクエストタイムアウト');
-          },
-        );
-        
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          
-          if (data['success'] == true && data['imageData'] != null) {
-            final String base64Data = data['imageData'];
-            final Uint8List bytes = base64Decode(base64Data);
-            final memoryImage = MemoryImage(bytes);
-            _imageCache[imageUrl] = memoryImage; // キャッシュに保存
-            _manageCacheSize(); // キャッシュサイズ管理
-            return memoryImage;
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      } on TimeoutException catch (e) {
-        if (retryCount < maxRetries) {
-          await Future.delayed(const Duration(milliseconds: 500));
-          continue;
-        }
-        return null;
       } catch (e) {
         return null;
       }

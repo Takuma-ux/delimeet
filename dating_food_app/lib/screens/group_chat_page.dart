@@ -933,7 +933,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: isLiked ? Colors.pink : Colors.grey[200],
+                              color: isLiked ? const Color(0xFFFFEFD5) : Colors.grey[200],
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -1119,7 +1119,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$memberName さんにいいねを送りました！'),
-            backgroundColor: Colors.pink,
+            backgroundColor: const Color(0xFFFFEFD5),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1249,7 +1249,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                 decoration: BoxDecoration(
                   color: Colors.orange[50],
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange[200]!),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: Column(
                   children: [
@@ -2010,7 +2010,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
               ],
             ),
           ),
-          backgroundColor: Colors.pink[400],
+          backgroundColor: const Color(0xFFFFFACD),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -2105,7 +2105,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                   if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return const Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                        valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFFFEFD5)),
                       ),
                     );
                   }
@@ -2162,7 +2162,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                     onPressed: _isSending ? null : _sendImage,
                     icon: Icon(
                       Icons.photo,
-                      color: _isSending ? Colors.grey : Colors.pink[400],
+                      color: _isSending ? Colors.grey : const Color(0xFFFFFACD),
                     ),
                   ),
                   if (widget.group.admins.contains(_groupService.currentUserId))
@@ -2170,7 +2170,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                       onPressed: _isSending ? null : _showDateRequestDialog,
                       icon: Icon(
                         Icons.restaurant,
-                        color: _isSending ? Colors.grey : Colors.pink[400],
+                        color: _isSending ? Colors.grey : const Color(0xFFFFFACD),
                       ),
                       tooltip: 'デートリクエストを送信（管理者のみ）',
                     ),
@@ -2205,7 +2205,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                           )
                         : Icon(
                             Icons.send,
-                            color: Colors.pink[400],
+                            color: const Color(0xFFFFFACD),
                           ),
                   ),
                 ],
@@ -2396,8 +2396,8 @@ class _GroupChatPageState extends State<GroupChatPage> {
       width: 280,
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: isMyMessage ? Colors.blue[50] : Colors.pink[50],
-        border: Border.all(color: isMyMessage ? Colors.blue[200]! : Colors.pink[200]!),
+        color: isMyMessage ? Colors.blue[50] : const Color(0xFFFDF5E6),
+        border: Border.all(color: isMyMessage ? Colors.blue[200]! : const Color(0xFFFFEFD5)!),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -2407,7 +2407,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isMyMessage ? Colors.blue[100] : Colors.pink[100],
+              color: isMyMessage ? Colors.blue[100] : const Color(0xFFFDF5E6),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -2415,14 +2415,14 @@ class _GroupChatPageState extends State<GroupChatPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.restaurant, color: isMyMessage ? Colors.blue[700] : Colors.pink[700], size: 20),
+                Icon(Icons.restaurant, color: isMyMessage ? Colors.blue[700] : const Color(0xFFFFEFD5), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'グループデートのお誘い',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isMyMessage ? Colors.blue[700] : Colors.pink[700],
+                      color: isMyMessage ? Colors.blue[700] : const Color(0xFFFFEFD5),
                       fontSize: 14,
                     ),
                   ),
@@ -2622,7 +2622,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
                                   child: ElevatedButton(
                                     onPressed: () => _respondToDateRequest(requestId, 'accept', proposedDates),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.pink,
+                                      backgroundColor: const Color(0xFFFFEFD5),
                                       foregroundColor: Colors.white,
                                     ),
                                     child: const Text('承認する'),
@@ -3538,7 +3538,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.restaurant, color: Colors.pink),
+            const Icon(Icons.restaurant, color: const Color(0xFFFFEFD5)),
             const SizedBox(width: 8),
             Expanded(child: Text('$restaurantName の予約方法')),
           ],
@@ -3581,10 +3581,10 @@ class _GroupChatPageState extends State<GroupChatPage> {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.pink.withOpacity(0.1),
+                  backgroundColor: const Color(0xFFFFEFD5).withOpacity(0.1),
                   child: Icon(
                     option['icon'] == 'phone' ? Icons.phone : Icons.web,
-                    color: Colors.pink,
+                    color: const Color(0xFFFFEFD5),
                   ),
                 ),
                 title: Text(
@@ -4149,7 +4149,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
       decoration: BoxDecoration(
         color: status == 'decided' ? Colors.green[50] : Colors.orange[50],
         border: Border.all(
-          color: status == 'decided' ? Colors.green[200]! : Colors.orange[200]!
+          color: status == 'decided' ? Colors.green[200]! : Colors.grey[200]!
         ),
         borderRadius: BorderRadius.circular(12),
       ),

@@ -137,7 +137,7 @@ class _FavoriteStoresPageState extends State<FavoriteStoresPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('お気に入りのお店'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -148,7 +148,7 @@ class _FavoriteStoresPageState extends State<FavoriteStoresPage> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Colors.pink),
+              child: CircularProgressIndicator(color: const Color(0xFFFFEFD5)),
             )
           : _likedRestaurants.isEmpty
               ? const Center(
@@ -236,7 +236,7 @@ class _FavoriteStoresPageState extends State<FavoriteStoresPage> {
                                       _formatPriceRange(restaurant),
                                       style: const TextStyle(
                                         fontSize: 14,
-                                        color: Colors.pink,
+                                        color: const Color(0xFFFFEFD5),
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),

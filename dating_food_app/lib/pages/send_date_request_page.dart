@@ -527,10 +527,10 @@ class _SendDateRequestPageState extends State<SendDateRequestPage> {
         const SizedBox(height: 8),
         if (_selectedRestaurant != null) ...[
           Card(
-            color: Colors.pink.shade50,
+            color: const Color(0xFFFDF5E6),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Colors.pink, width: 2),
+              side: const BorderSide(color: const Color(0xFFFFEFD5), width: 2),
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -1111,7 +1111,7 @@ class _SendDateRequestPageState extends State<SendDateRequestPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text('${widget.partnerName}さんにデートをお誘い'),
-          backgroundColor: Colors.pink,
+          backgroundColor: const Color(0xFFFFEFD5),
           foregroundColor: Colors.white,
         ),
         body: SingleChildScrollView(
@@ -1171,7 +1171,7 @@ class _SendDateRequestPageState extends State<SendDateRequestPage> {
           child: ElevatedButton(
             onPressed: _canSendRequest() ? _sendDateRequest : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink,
+              backgroundColor: const Color(0xFFFFEFD5),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

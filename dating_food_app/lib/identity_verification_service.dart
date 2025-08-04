@@ -787,7 +787,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('身分証明書認証'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -1079,18 +1079,18 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.pink.shade50,
+                  color: const Color(0xFFFDF5E6),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.pink.shade200),
+                  border: Border.all(color: const Color(0xFFFFEFD5)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.pink.shade600, size: 20),
+                    Icon(Icons.check_circle, color: const Color(0xFFFFEFD5), size: 20),
                     const SizedBox(width: 8),
                     Text(
                       '選択中: ${_selectedDocumentType.displayName}',
                       style: TextStyle(
-                        color: Colors.pink.shade700,
+                        color: const Color(0xFFFFEFD5),
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -1108,7 +1108,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                         title: Text(type.displayName),
                         value: type,
                         groupValue: _selectedDocumentType,
-                        activeColor: Colors.pink,
+                        activeColor: const Color(0xFFFFEFD5),
                         onChanged: (DocumentType? value) {
                           if (value != null) {
                             setState(() {
@@ -1186,7 +1186,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submitVerification,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink,
+                    backgroundColor: const Color(0xFFFFEFD5),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),

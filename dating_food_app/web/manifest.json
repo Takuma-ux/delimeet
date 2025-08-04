@@ -3,12 +3,16 @@
     "short_name": "デリミート",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#FF6B6B",
-    "theme_color": "#FF6B6B",
+    "background_color": "#ffffff",
+    "theme_color": "#ff7043",
     "description": "グルメでつながる出会いアプリ『デリミート』で素敵な出会いと美味しい食事を楽しもう！",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
-    "categories": ["dating", "food", "social"],
+    "categories": [
+        "dating",
+        "food",
+        "social"
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",

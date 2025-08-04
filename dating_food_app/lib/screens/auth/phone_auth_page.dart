@@ -228,7 +228,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('SMS認証'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -339,7 +339,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _sendVerificationCode,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink,
+                    backgroundColor: const Color(0xFFFFEFD5),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
@@ -396,7 +396,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _verifyCode,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink,
+                    backgroundColor: const Color(0xFFFFEFD5),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
@@ -424,7 +424,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                     'コードを再送信',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.pink,
+                      color: const Color(0xFFFFEFD5),
                     ),
                   ),
                 ),

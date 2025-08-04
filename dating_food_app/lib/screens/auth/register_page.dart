@@ -13,7 +13,7 @@ class RegisterPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('新規登録'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
@@ -211,12 +211,12 @@ class RegisterPage extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isDisabled ? Colors.grey.shade300 : Colors.pink.shade50,
+                  color: isDisabled ? Colors.grey.shade300 : const Color(0xFFFDF5E6),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: Icon(
                   icon,
-                  color: isDisabled ? Colors.grey.shade400 : Colors.pink.shade600,
+                  color: isDisabled ? Colors.grey.shade400 : const Color(0xFFFFEFD5),
                   size: 22,
                 ),
               ),
@@ -347,7 +347,7 @@ class RegisterPage extends StatelessWidget {
               passwordController.text,
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink,
+              backgroundColor: const Color(0xFFFFEFD5),
               foregroundColor: Colors.white,
             ),
             child: const Text('登録'),
@@ -537,7 +537,7 @@ class RegisterPage extends StatelessWidget {
                             });
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.pink,
+                            backgroundColor: const Color(0xFFFFEFD5),
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('別のメールで登録'),
@@ -892,7 +892,7 @@ class RegisterPage extends StatelessWidget {
                 _showEmailAuthDialog(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink,
+                backgroundColor: const Color(0xFFFFEFD5),
                 foregroundColor: Colors.white,
               ),
               child: const Text('別のメールで登録'),
@@ -931,7 +931,7 @@ class RegisterPage extends StatelessWidget {
               _showSnackBar(context, 'ログアウトしました', Colors.green);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink,
+              backgroundColor: const Color(0xFFFFEFD5),
               foregroundColor: Colors.white,
             ),
             child: const Text('ログアウト'),

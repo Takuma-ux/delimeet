@@ -97,7 +97,7 @@ class _MatchPageState extends State<MatchPage> {
       final userUuid = userResult['id'];
       print('User UUID for match list: $userUuid');
 
-      // マッチデータを取得（インデックス活用）
+      // すべてのマッチデータを取得（マッチした人にはすべて表示）
       final result = await _supabase
           .from('matches')
           .select('''
@@ -142,31 +142,50 @@ class _MatchPageState extends State<MatchPage> {
         print('Partner result: $partnerResult');
 
         if (partnerResult != null) {
-          // 最新メッセージを取得
-          final messageResult = await _supabase
-              .from('messages')
-              .select('content, created_at')
-              .or('sender_id.eq.$userUuid,recipient_id.eq.$userUuid')
-              .or('sender_id.eq.$partnerId,recipient_id.eq.$partnerId')
-              .order('created_at', ascending: false)
-              .limit(1);
+                                            // 最新メッセージを取得
+          String? lastMessageContent;
+          String? lastMessageAt;
+          
+          try {
+            
+            // Firebase Functionsでメッセージを取得
+            final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('getMatchMessages');
+            final result = await callable({
+              'matchId': match['id'],
+              'limit': 1,
+            }).timeout(const Duration(seconds: 3));
+            
+            
+            if (result.data != null && result.data['messages'] != null) {
+              final messages = result.data['messages'] as List;
+              if (messages.isNotEmpty) {
+                final lastMessage = messages.first;
+                lastMessageContent = lastMessage['content'];
+                lastMessageAt = lastMessage['sent_at'];
+              } else {
+              }
+            } else {
+              print('No messages data in result');
+            }
+          } catch (e) {
+            print('Failed to get messages: $e');
+          }
 
-          final lastMessage = messageResult.isNotEmpty ? messageResult.first : null;
+        // デバッグ用：メッセージ情報をログ出力
 
-          matchDetails.add({
-            'id': match['id'],
-            'partner_id': partnerId,
-            'partner_name': partnerResult['name'] ?? '名前未設定',
-            'partner_image_url': partnerResult['image_url'],
-            'last_message': lastMessage?['content'],
-            'last_message_at': lastMessage?['created_at'],
-            'created_at': match['created_at'],
-            'restaurant_id': match['restaurant_id'],
-          });
+        matchDetails.add({
+          'id': match['id'],
+          'partner_id': partnerId,
+          'partner_name': partnerResult['name'] ?? '名前未設定',
+          'partner_image_url': partnerResult['image_url'],
+          'last_message': lastMessageContent,
+          'last_message_at': lastMessageAt,
+          'created_at': match['created_at'],
+          'restaurant_id': match['restaurant_id'],
+        });
         }
       }
 
-      print('Match details: ${matchDetails.length}');
       return matchDetails;
     } catch (e) {
       print('Supabase match error: $e');
@@ -272,6 +291,56 @@ class _MatchPageState extends State<MatchPage> {
     _cachedMatches = List.from(matches);
   }
 
+  // 表示可能なメッセージカードを取得
+  Future<List<dynamic>> _getVisibleMessageCards() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('No current user found for visible message cards');
+        return [];
+      }
+
+      // Firebase UIDからUUIDを取得
+      final userResult = await _supabase
+          .from('users')
+          .select('id')
+          .eq('firebase_uid', user.uid)
+          .maybeSingle();
+
+      if (userResult == null) {
+        print('No user found in Supabase for visible message cards');
+        return [];
+      }
+
+      final userUuid = userResult['id'];
+
+      // 非表示のメッセージカードのマッチIDを取得
+      final hiddenMatchIds = await _supabase
+          .from('message_card_visibility')
+          .select('match_id')
+          .eq('user_id', userUuid)
+          .eq('is_hidden', true);
+
+      final List<String> hiddenMatchIdList = hiddenMatchIds.map((item) => item['match_id'].toString()).toList();
+
+      print('Hidden match IDs: $hiddenMatchIdList');
+
+      // 非表示でないマッチの詳細情報を取得
+      final visibleMatches = <Map<String, dynamic>>[];
+      for (final match in _matches) {
+        if (!hiddenMatchIdList.contains(match['id'])) {
+          visibleMatches.add(match);
+        }
+      }
+
+      print('Visible message cards: ${visibleMatches.length} (hidden: ${hiddenMatchIdList.length})');
+      return visibleMatches;
+    } catch (e) {
+      print('Error getting visible message cards: $e');
+      return [];
+    }
+  }
+
   // 最新メッセージの表示テキストを取得（画像URLを隠す）
   String getDisplayTextForLatestMessage(dynamic message) {
     if (message == null || message.toString().isEmpty) {
@@ -300,14 +369,14 @@ class _MatchPageState extends State<MatchPage> {
     return message.toString();
   }
 
-  // メッセージ削除機能（Supabase直接接続）
-  Future<void> _deleteMessages(String matchId, String partnerName) async {
-    final shouldDelete = await showDialog<bool>(
+  // メッセージ非表示機能（自分から見て非表示のみ）
+  Future<void> _hideMessages(String matchId, String partnerName) async {
+    final shouldHide = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('メッセージ削除'),
-          content: Text('${partnerName}さんとのメッセージ履歴をすべて削除しますか？\n\nこの操作は取り消せません。'),
+          title: const Text('メッセージカード非表示'),
+          content: Text('${partnerName}さんとのメッセージカードを非表示にしますか？\n\nマッチした人には表示され続けますが、メッセージ一覧からは非表示になります。\n\n相手には表示されたままです。\n\n非表示にしたメッセージカードは後で表示に戻すことができます。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -315,15 +384,15 @@ class _MatchPageState extends State<MatchPage> {
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('削除'),
+              style: TextButton.styleFrom(foregroundColor: Colors.orange),
+              child: const Text('非表示'),
             ),
           ],
         );
       },
     );
 
-    if (shouldDelete != true) return;
+    if (shouldHide != true) return;
 
     try {
       // ローディング表示
@@ -335,47 +404,129 @@ class _MatchPageState extends State<MatchPage> {
         ),
       );
 
-      // Supabaseから直接メッセージを削除
+      // 現在のユーザーIDを取得
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('ユーザーが認証されていません');
+      if (user == null) {
+        throw Exception('ユーザーが認証されていません');
+      }
 
-      // ユーザーIDを取得
+      // Firebase UIDからUUIDを取得
       final userResult = await _supabase
           .from('users')
           .select('id')
           .eq('firebase_uid', user.uid)
           .maybeSingle();
 
-      if (userResult == null) throw Exception('ユーザーが見つかりません');
+      if (userResult == null) {
+        throw Exception('ユーザーが見つかりません');
+      }
 
       final userUuid = userResult['id'];
 
-      // マッチ情報を取得
-      final matchResult = await _supabase
-          .from('matches')
-          .select('user1_id, user2_id')
-          .eq('id', matchId)
-          .maybeSingle();
+      // Supabaseでメッセージカードを非表示にする
+      
+      final result = await _supabase.rpc('hide_message_card', params: {
+        'p_user_id': userUuid,
+        'p_match_id': matchId,
+      });
 
-      if (matchResult == null) throw Exception('マッチが見つかりません');
 
-      final partnerId = matchResult['user1_id'] == userUuid 
-          ? matchResult['user2_id'] 
-          : matchResult['user1_id'];
-
-      // メッセージを削除
-      await _supabase
-          .from('messages')
-          .delete()
-          .or('sender_id.eq.$userUuid,recipient_id.eq.$userUuid')
-          .or('sender_id.eq.$partnerId,recipient_id.eq.$partnerId');
+      // メッセージカードを非表示にする（マッチ一覧からは削除しない）
+      // マッチ一覧を再読み込みして最新の状態を反映
+      await _loadMatches(forceRefresh: true);
 
       if (mounted) {
         Navigator.of(context).pop(); // ローディングを閉じる
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${partnerName}さんとのメッセージを削除しました'),
+            content: Text('${partnerName}さんとのメッセージカードを非表示にしました'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // ローディングを閉じる
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('メッセージカード非表示に失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 非表示メッセージを表示に戻す機能
+  Future<void> _showHiddenMessages(String matchId, String partnerName) async {
+    final shouldShow = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('非表示メッセージカードの表示'),
+          content: Text('${partnerName}さんとの非表示メッセージカードを表示に戻しますか？\n\n非表示にしたメッセージカードが再び表示されるようになります。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.blue),
+              child: const Text('表示に戻す'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldShow != true) return;
+
+    try {
+      // ローディング表示
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // 現在のユーザーIDを取得
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('ユーザーが認証されていません');
+      }
+
+      // Firebase UIDからUUIDを取得
+      final userResult = await _supabase
+          .from('users')
+          .select('id')
+          .eq('firebase_uid', user.uid)
+          .maybeSingle();
+
+      if (userResult == null) {
+        throw Exception('ユーザーが見つかりません');
+      }
+
+      final userUuid = userResult['id'];
+
+      // Supabaseでメッセージカードを表示に戻す
+      
+      final result = await _supabase.rpc('show_message_card', params: {
+        'p_user_id': userUuid,
+        'p_match_id': matchId,
+      });
+
+      print('Shown message card count: $result');
+
+      if (mounted) {
+        Navigator.of(context).pop(); // ローディングを閉じる
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${partnerName}さんとのメッセージカードを表示に戻しました'),
             backgroundColor: Colors.green,
           ),
         );
@@ -388,7 +539,7 @@ class _MatchPageState extends State<MatchPage> {
         Navigator.of(context).pop(); // ローディングを閉じる
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('メッセージ削除に失敗しました: $e'),
+            content: Text('メッセージカード表示に失敗しました: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -472,7 +623,7 @@ class _MatchPageState extends State<MatchPage> {
                 }
               },
               style: TextButton.styleFrom(
-                backgroundColor: Colors.pink,
+                backgroundColor: const Color(0xFFF6BFBC),
                 foregroundColor: Colors.white,
               ),
               child: const Text('メッセージ'),
@@ -573,14 +724,15 @@ class _MatchPageState extends State<MatchPage> {
     final lastMessage = match['last_message'];
     final lastMessageAt = match['last_message_at'];
     
-    if (lastMessage == null || lastMessage.isEmpty) {
+
+    if (lastMessage == null || lastMessage.toString().isEmpty || lastMessage.toString() == 'null') {
       return 'まだメッセージがありません';
     }
     
     // 画像URLを隠す処理を適用
     final displayText = getDisplayTextForLatestMessage(lastMessage);
     
-    if (lastMessageAt != null) {
+    if (lastMessageAt != null && lastMessageAt.toString() != 'null') {
       try {
         final DateTime messageTime = DateTime.parse(lastMessageAt).toLocal();
         final DateTime now = DateTime.now();
@@ -599,6 +751,7 @@ class _MatchPageState extends State<MatchPage> {
         
         return '$displayText • $timeStr';
       } catch (e) {
+        print('Error parsing message time: $e');
         return displayText;
       }
     }
@@ -648,6 +801,15 @@ class _MatchPageState extends State<MatchPage> {
                   ).then((_) {
                     _loadMatches();
                   });
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_bubble, color: Colors.blue),
+                title: const Text('メッセージカードを表示'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  // メッセージカードを表示に戻す
+                  _showHiddenMessages(match['id'], partnerName);
                 },
               ),
               ListTile(
@@ -764,15 +926,15 @@ class _MatchPageState extends State<MatchPage> {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.pink[50],
+                  color: const Color(0xFFFDF5E6),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.pink, width: 1),
+                  border: Border.all(color: const Color(0xFFF6BFBC), width: 1),
                 ),
                 child: Text(
                   '🍽️ ${match['restaurant_name']}',
                   style: const TextStyle(
                     fontSize: 10,
-                    color: Colors.pink,
+                    color: const Color(0xFFF6BFBC),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -805,23 +967,24 @@ class _MatchPageState extends State<MatchPage> {
               onSelected: (value) async {
                 if (value == 'block' && partnerId.isNotEmpty) {
                   await _blockUser(partnerId, partnerName);
-                } else if (value == 'delete_messages') {
-                  await _deleteMessages(match['id'], partnerName);
+                } else if (value == 'hide_messages') {
+                  await _hideMessages(match['id'], partnerName);
                 } else if (value == 'report' && partnerId.isNotEmpty) {
                   await _reportUser(partnerId, partnerName);
                 }
               },
               itemBuilder: (BuildContext context) => [
                 PopupMenuItem<String>(
-                  value: 'delete_messages',
+                  value: 'hide_messages',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, color: Colors.orange, size: 18),
+                      Icon(Icons.visibility_off, color: Colors.orange, size: 18),
                       SizedBox(width: 8),
-                      Text('メッセージ削除'),
+                      Text('メッセージカード非表示'),
                     ],
                   ),
                 ),
+
                 const PopupMenuItem<String>(
                   value: 'report',
                   child: Row(
@@ -882,7 +1045,7 @@ class _MatchPageState extends State<MatchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('マッチ'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFF6BFBC),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -977,7 +1140,7 @@ class _MatchPageState extends State<MatchPage> {
                                                         ? FontWeight.bold 
                                                         : FontWeight.w500,
                                                     color: isNewMatch 
-                                                        ? Colors.pink[700] 
+                                                        ? const Color(0xFFF6BFBC) 
                                                         : null,
                                                   ),
                                                   textAlign: TextAlign.center,
@@ -997,7 +1160,7 @@ class _MatchPageState extends State<MatchPage> {
                                                     vertical: 2,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.pink,
+                                                    color: const Color(0xFFF6BFBC),
                                                     borderRadius: BorderRadius.circular(10),
                                                   ),
                                                   child: const Text(
@@ -1022,7 +1185,7 @@ class _MatchPageState extends State<MatchPage> {
                         ),
                       ],
                       const Divider(),
-                      // すべてのマッチを「メッセージ」として一つのリストで表示
+                      // メッセージ一覧のヘッダー
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1047,47 +1210,48 @@ class _MatchPageState extends State<MatchPage> {
                           ],
                         ),
                       ),
-                      // すべてのマッチをリストで表示
+                      // 表示可能なメッセージカードのみを表示
                       Expanded(
-                        child: _matches.where((match) => 
-                          match['last_message'] != null && 
-                          match['last_message'].toString().isNotEmpty
-                        ).isEmpty
-                        ? const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                                SizedBox(height: 20),
-                                Text(
-                                  'まだメッセージがありません',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        child: FutureBuilder<List<dynamic>>(
+                          future: _getVisibleMessageCards(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            
+                            final visibleMatches = snapshot.data ?? [];
+                            
+                            return visibleMatches.isEmpty
+                            ? const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                                    SizedBox(height: 20),
+                                    Text(
+                                      'まだメッセージがありません',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    SizedBox(height: 10),
+                                    Text(
+                                      '上のマッチした人をタップして\nメッセージを送ってみましょう！',
+                                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 10),
-                                Text(
-                                  '上のマッチした人をタップして\nメッセージを送ってみましょう！',
-                                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: _matches.where((match) => 
-                              match['last_message'] != null && 
-                              match['last_message'].toString().isNotEmpty
-                            ).length,
-                            itemBuilder: (context, index) {
-                              final matchesWithMessages = _matches.where((match) => 
-                                match['last_message'] != null && 
-                                match['last_message'].toString().isNotEmpty
-                              ).toList();
-                              if (index >= matchesWithMessages.length) return const SizedBox.shrink();
-                              final match = matchesWithMessages[index];
-                              // 画像UIを「その他のマッチ」と同じ楕円形に統一
-                              return _buildMatchCard(match, false);
-                            },
-                          ),
+                              )
+                            : ListView.builder(
+                                itemCount: visibleMatches.length,
+                                itemBuilder: (context, index) {
+                                  final match = visibleMatches[index];
+                                  // デバッグ用：マッチ情報をログ出力
+                                  print('Building visible match card for: ${match['partner_name']}, last_message: ${match['last_message']}');
+                                  return _buildMatchCard(match, false);
+                                },
+                              );
+                          },
+                        ),
                       ),
                     ],
                   ),

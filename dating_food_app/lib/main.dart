@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -169,8 +170,30 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'デリミート - 素敵な出会いと美味しい食事を',
+      locale: const Locale('ja', 'JP'), // 日本語ロケールを設定
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ja', 'JP'),
+        Locale('en', 'US'),
+      ],
       theme: ThemeData(
-        primarySwatch: Colors.pink,
+        primarySwatch: Colors.brown,
+        primaryColor: const Color(0xFFFFEFD5), // サドルブラウン（温かみのある茶色）
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFFFEFD5),
+          primary: const Color(0xFFFFEFD5), // サドルブラウン
+          secondary: const Color(0xFFF5F5DC), // ベージュ
+          surface: const Color(0xFFFDF5E6), // オフホワイト
+          background: const Color(0xFFFDF5E6), // オフホワイト
+          onPrimary: Colors.white,
+          onSecondary: const Color(0xFFFFEFD5),
+          onSurface: const Color(0xFFFFEFD5),
+          onBackground: const Color(0xFFFFEFD5),
+        ),
         useMaterial3: false, // Material 3を無効化して元の見た目に戻す
         fontFamily: 'NotoSansJP',
         fontFamilyFallback: ['Inter', 'sans-serif'],
@@ -180,6 +203,25 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
           margin: EdgeInsets.zero,
+          color: Color(0xFFFDF5E6), // カードの背景色もオフホワイトに
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFFEFD5), // アプリバーの背景色
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFFFACD), // チョコレート色（アクセント）
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFFFFFACD), // チョコレート色
+          foregroundColor: Colors.white,
         ),
       ),
       navigatorKey: navigatorKey, // グローバルナビゲーションキーを設定
@@ -400,7 +442,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final callable = functions.httpsCallable('checkExistingUser');
         
         // Web版ではタイムアウトを短縮
-        final timeout = kIsWeb ? const Duration(seconds: 8) : const Duration(seconds: 12);
+        final timeout = const Duration(seconds: 8);
         
         final result = await callable.call({
           'uid': uid,
@@ -560,7 +602,7 @@ class _DatingFoodAppState extends State<DatingFoodApp> {
             child: Container(
               padding: const EdgeInsets.all(2),
               decoration: const BoxDecoration(
-                color: Colors.pink,
+                color: Color(0xFFFFEFD5),
                 shape: BoxShape.circle,
               ),
               constraints: const BoxConstraints(
@@ -611,7 +653,7 @@ class _DatingFoodAppState extends State<DatingFoodApp> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.pink,
+        selectedItemColor: const Color(0xFF274A78),
         unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
@@ -1204,7 +1246,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('レストランを探す'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -1279,7 +1321,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.pink,
+                              color: const Color(0xFFFFEFD5),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -1472,7 +1514,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                                           child: Container(
                                                             padding: const EdgeInsets.all(6),
                                                             decoration: BoxDecoration(
-                                                              color: isLiked ? Colors.pink : Colors.grey[200],
+                                                              color: isLiked ? const Color(0xFFFFEFD5) : Colors.grey[200],
                                                               borderRadius: BorderRadius.circular(12),
                                                             ),
                                                             child: Icon(
@@ -1548,14 +1590,14 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                                           Icon(
                                                             Icons.monetization_on,
                                                             size: 10,
-                                                            color: Colors.pink[400],
+                                                            color: const Color(0xFFFFFACD),
                                                           ),
                                                           const SizedBox(width: 1),
                                                           Text(
                                                             restaurant['price_range'].toString(),
                                                             style: TextStyle(
                                                               fontSize: 10,
-                                                              color: Colors.pink[600],
+                                                              color: const Color(0xFFFFEFD5),
                                                               fontWeight: FontWeight.w500,
                                                             ),
                                                           ),
@@ -1581,7 +1623,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                           child: ElevatedButton(
                             onPressed: _loadMoreResults,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.pink,
+                              backgroundColor: const Color(0xFFFFEFD5),
                               minimumSize: const Size(double.infinity, 48),
                             ),
                             child: Text(
@@ -1610,8 +1652,8 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
       onSelected: (bool selected) {
         _showFilterDialog(label, type);
       },
-      selectedColor: Colors.pink[100],
-      checkmarkColor: Colors.pink,
+      selectedColor: const Color(0xFFFDF5E6),
+      checkmarkColor: const Color(0xFFFFEFD5),
     );
   }
 
@@ -1624,8 +1666,8 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
       ),
       selected: _selectedCities.isNotEmpty,
       onSelected: (_) => _showCitySelectionDialog(),
-      selectedColor: Colors.pink[100],
-      checkmarkColor: Colors.pink,
+      selectedColor: const Color(0xFFFDF5E6),
+      checkmarkColor: const Color(0xFFFFEFD5),
     );
   }
 
@@ -1731,7 +1773,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                                   decoration: BoxDecoration(
-                                    color: Colors.pink[50],
+                                    color: const Color(0xFFFDF5E6),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -1739,7 +1781,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.pink,
+                                      color: const Color(0xFFFFEFD5),
                                     ),
                                   ),
                                 ),
@@ -1818,15 +1860,15 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
       onSelected: (bool selected) {
         _showPriceDialog();
       },
-      selectedColor: Colors.pink[100],
-      checkmarkColor: Colors.pink,
+      selectedColor: const Color(0xFFFDF5E6),
+      checkmarkColor: const Color(0xFFFFEFD5),
     );
   }
 
   Widget _buildSelectedFilterChip(String type, String value) {
     return Chip(
       label: Text(value),
-      backgroundColor: Colors.pink[50],
+      backgroundColor: const Color(0xFFFDF5E6),
       deleteIcon: const Icon(Icons.close, size: 18),
       onDeleted: () => _removeFilter(type, value),
     );
@@ -2373,7 +2415,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                 padding: const EdgeInsets.all(20),
                 child: const Icon(
                   Icons.favorite,
-                  color: Colors.pink,
+                  color: const Color(0xFFFFEFD5),
                   size: 80,
                 ),
               ),
@@ -2382,7 +2424,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.pink,
+                  color: const Color(0xFFFFEFD5),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -2401,7 +2443,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                         : null,
                   ),
                   const SizedBox(width: 16),
-                  const Icon(Icons.favorite, color: Colors.pink, size: 24),
+                  const Icon(Icons.favorite, color: const Color(0xFFFFEFD5), size: 24),
                   const SizedBox(width: 16),
                   const CircleAvatar(
                     radius: 30,
@@ -2439,7 +2481,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink,
+                backgroundColor: const Color(0xFFFFEFD5),
                 foregroundColor: Colors.white,
               ),
               child: const Text('メッセージを送る'),
@@ -2455,7 +2497,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('人を探す'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -2725,7 +2767,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                                                   child: Container(
                                                     padding: const EdgeInsets.all(8),
                                                     decoration: BoxDecoration(
-                                                      color: isLiked ? Colors.pink : Colors.grey[200],
+                                                      color: isLiked ? const Color(0xFFFFEFD5) : Colors.grey[200],
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
@@ -2753,7 +2795,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
                           child: ElevatedButton(
                             onPressed: _loadMoreResults,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.pink,
+                              backgroundColor: const Color(0xFFFFEFD5),
                               minimumSize: const Size(double.infinity, 48),
                             ),
                             child: Text(
@@ -2788,8 +2830,8 @@ class _UserSearchPageState extends State<UserSearchPage> {
       label: Text(label),
       selected: _minAge != null || _maxAge != null,
       onSelected: (_) => _showAgeDialog(),
-      selectedColor: Colors.pink[100],
-      checkmarkColor: Colors.pink,
+      selectedColor: const Color(0xFFFDF5E6),
+      checkmarkColor: const Color(0xFFFFEFD5),
     );
   }
 
@@ -2798,8 +2840,8 @@ class _UserSearchPageState extends State<UserSearchPage> {
       label: Text(selectedValues.isEmpty ? label : '$label(${selectedValues.length})'),
       selected: selectedValues.isNotEmpty,
       onSelected: (_) => _showMultiSelectDialog(label, selectedValues, options),
-      selectedColor: Colors.pink[100],
-      checkmarkColor: Colors.pink,
+      selectedColor: const Color(0xFFFDF5E6),
+      checkmarkColor: const Color(0xFFFFEFD5),
     );
   }
 
@@ -2813,8 +2855,8 @@ class _UserSearchPageState extends State<UserSearchPage> {
       label: Text(displayLabel),
       selected: value != null,
       onSelected: (_) => _showBooleanDialog(label, value, onChanged),
-      selectedColor: Colors.pink[100],
-      checkmarkColor: Colors.pink,
+      selectedColor: const Color(0xFFFDF5E6),
+      checkmarkColor: const Color(0xFFFFEFD5),
     );
   }
 
@@ -3232,7 +3274,7 @@ class _FavoriteStoresPageState extends State<FavoriteStoresPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('お気に入りのお店'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -3336,7 +3378,7 @@ class _FavoriteStoresPageState extends State<FavoriteStoresPage> {
                                               child: Container(
                                                 padding: const EdgeInsets.all(6),
                                                 decoration: BoxDecoration(
-                                                  color: isLiked ? Colors.pink : Colors.grey[200],
+                                                  color: isLiked ? const Color(0xFFFFEFD5) : Colors.grey[200],
                                                   borderRadius: BorderRadius.circular(12),
                                                 ),
                                                 child: Icon(
@@ -3412,14 +3454,14 @@ class _FavoriteStoresPageState extends State<FavoriteStoresPage> {
                                               Icon(
                                                 Icons.monetization_on,
                                                 size: 10,
-                                                color: Colors.pink[400],
+                                                color: const Color(0xFFFFFACD),
                                               ),
                                               const SizedBox(width: 1),
                                               Text(
                                                 restaurant['price_range'].toString(),
                                                 style: TextStyle(
                                                   fontSize: 10,
-                                                  color: Colors.pink[600],
+                                                  color: const Color(0xFFFFEFD5),
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                               ),
@@ -3655,7 +3697,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                 padding: const EdgeInsets.all(20),
                 child: const Icon(
                   Icons.favorite,
-                  color: Colors.pink,
+                  color: const Color(0xFFFFEFD5),
                   size: 80,
                 ),
               ),
@@ -3664,7 +3706,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.pink,
+                  color: const Color(0xFFFFEFD5),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -3683,7 +3725,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                         : null,
                   ),
                   const SizedBox(width: 16),
-                  const Icon(Icons.favorite, color: Colors.pink, size: 24),
+                  const Icon(Icons.favorite, color: const Color(0xFFFFEFD5), size: 24),
                   const SizedBox(width: 16),
                   const CircleAvatar(
                     radius: 30,
@@ -3721,7 +3763,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink,
+                backgroundColor: const Color(0xFFFFEFD5),
                 foregroundColor: Colors.white,
               ),
               child: const Text('メッセージを送る'),
@@ -3737,7 +3779,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
     return Scaffold(
       appBar: AppBar(
         title: const Text('いいね'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -3828,7 +3870,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
               ),
               trailing: const Icon(
                 Icons.favorite,
-                color: Colors.pink,
+                color: const Color(0xFFFFEFD5),
                 size: 24,
               ),
               onTap: () {
@@ -3895,11 +3937,11 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             elevation: isNewLike ? 8 : 2,
-            shadowColor: isNewLike ? Colors.pink.withOpacity(0.3) : null,
+            shadowColor: isNewLike ? const Color(0xFFFFEFD5).withOpacity(0.3) : null,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: isNewLike 
-                  ? BorderSide(color: Colors.pink.withOpacity(0.5), width: 2)
+                  ? BorderSide(color: const Color(0xFFFFEFD5).withOpacity(0.5), width: 2)
                   : BorderSide.none,
             ),
             child: Container(
@@ -3908,7 +3950,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                       borderRadius: BorderRadius.circular(12),
                       gradient: LinearGradient(
                         colors: [
-                          Colors.pink.withOpacity(0.05),
+                          const Color(0xFFFFEFD5).withOpacity(0.05),
                           Colors.white,
                         ],
                         begin: Alignment.topLeft,
@@ -3924,12 +3966,12 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: isNewLike 
-                            ? Border.all(color: Colors.pink, width: 2)
+                            ? Border.all(color: const Color(0xFFFFEFD5), width: 2)
                             : null,
                         boxShadow: isNewLike 
                             ? [
                                 BoxShadow(
-                                  color: Colors.pink.withOpacity(0.3),
+                                  color: const Color(0xFFFFEFD5).withOpacity(0.3),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 )
@@ -3957,7 +3999,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.pink,
+                            color: const Color(0xFFFFEFD5),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
@@ -3976,7 +4018,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                   like['name'] ?? '名前未設定',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: isNewLike ? Colors.pink[700] : null,
+                    color: isNewLike ? const Color(0xFFFFEFD5) : null,
                   ),
                 ),
               subtitle: Column(
@@ -4017,15 +4059,15 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.pink[50],
+                      color: const Color(0xFFFDF5E6),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.favorite, color: Colors.pink, size: 14),
+                        Icon(Icons.favorite, color: const Color(0xFFFFEFD5), size: 14),
                         SizedBox(width: 4),
-                        Text('受信', style: TextStyle(color: Colors.pink, fontSize: 11)),
+                        Text('受信', style: TextStyle(color: const Color(0xFFFFEFD5), fontSize: 11)),
                       ],
                     ),
                   ),
@@ -4059,7 +4101,7 @@ class _OldLikesPageState extends State<OldLikesPage> with SingleTickerProviderSt
                         return Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: isLiked ? Colors.pink : Colors.grey[200],
+                            color: isLiked ? const Color(0xFFFFEFD5) : Colors.grey[200],
                             shape: BoxShape.circle,
                           ),
                           child: Icon(

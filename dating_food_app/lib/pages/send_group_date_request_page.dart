@@ -284,7 +284,7 @@ class _SendGroupDateRequestPageState extends State<SendGroupDateRequestPage> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.orange[50],
-                border: Border.all(color: Colors.orange[300]!),
+                border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -339,7 +339,7 @@ class _SendGroupDateRequestPageState extends State<SendGroupDateRequestPage> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.orange[50],
-                border: Border.all(color: Colors.orange[300]!),
+                border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -406,7 +406,7 @@ class _SendGroupDateRequestPageState extends State<SendGroupDateRequestPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('グループデートリクエスト'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
         foregroundColor: Colors.white,
       ),
       body: GestureDetector(
@@ -800,7 +800,7 @@ class _SendGroupDateRequestPageState extends State<SendGroupDateRequestPage> {
                     ? _sendGroupDateRequest 
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink,
+                  backgroundColor: const Color(0xFFFFEFD5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

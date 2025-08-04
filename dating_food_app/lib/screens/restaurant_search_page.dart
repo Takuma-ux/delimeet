@@ -9,7 +9,8 @@ import '../services/web_image_helper.dart';
 import '../models/restaurant_model.dart';
 import 'restaurant_detail_page.dart';
 import 'map_search_page.dart';
-import 'web_map_search_page.dart';
+// Web版専用のページを条件付きでインポート
+import 'web_map_search_page.dart' if (dart.library.io) 'web_map_search_page_stub.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // Supabase追加
 
 class RestaurantSearchPage extends StatefulWidget {
@@ -150,7 +151,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
     
     try {
       // 軽量な初期化のみ実行（Web版ではタイムアウトを短縮）
-      final timeout = kIsWeb ? const Duration(seconds: 1) : const Duration(seconds: 2);
+      final timeout = const Duration(seconds: 1);
       await _loadUserPrefecture().timeout(timeout);
       
       // 背景でいいね状態を読み込み
@@ -210,8 +211,8 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
       List<dynamic> allResults = [];
       
       // Web版では取得件数を制限
-      final maxPrefectures = kIsWeb ? 1 : 2;
-      final limitPerPrefecture = kIsWeb ? 3 : 5;
+      final maxPrefectures = 1;
+      final limitPerPrefecture = 3;
       
       for (String prefecture in popularPrefectures.take(maxPrefectures)) {
         try {
@@ -427,15 +428,15 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                                   decoration: BoxDecoration(
-                                    color: Colors.pink[50],
+                                    color: Colors.grey[100],
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     prefecture,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.pink,
+                                      color: Colors.grey[700],
                                     ),
                                   ),
                                 ),
@@ -851,7 +852,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
         value,
         style: const TextStyle(fontSize: 12),
       ),
-      backgroundColor: Colors.pink[50],
+      backgroundColor: const Color(0xFFFDF5E6),
       deleteIcon: const Icon(Icons.close, size: 16),
       onDeleted: () => _removeFilter(type, value),
     );
@@ -894,7 +895,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('レストラン検索'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFDDEA5),
         foregroundColor: Colors.white,
         leading: kIsWeb ? IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -907,9 +908,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => kIsWeb 
-                    ? const WebMapSearchPage() 
-                    : const MapSearchPage(),
+                builder: (context) => const MapSearchPage(),
               ),
             ),
           ),
@@ -927,6 +926,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -972,7 +972,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.pink,
+                              color: Colors.grey[600],
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -1304,15 +1304,15 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                                   width: double.infinity,
                                                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.pink[50],
+                                                    color: Colors.grey[100],
                                                     borderRadius: BorderRadius.circular(8),
                                                   ),
                                                   child: Text(
                                                     prefecture,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 16,
                                                       fontWeight: FontWeight.bold,
-                                                      color: Colors.pink,
+                                                      color: Colors.grey[700],
                                                     ),
                                                   ),
                                                 ),
@@ -1625,7 +1625,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                         _searchRestaurants(loadMore: true);
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.pink[300],
+                                        backgroundColor: Colors.grey[600],
                                         minimumSize:
                                             const Size(double.infinity, 50),
                                       ),
@@ -1682,7 +1682,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                     );
                                   },
                                   child: SizedBox(
-                                    height: 118, // カードの高さを調整
+                                    height: 121, // カードの高さを3px大きく調整
                                     child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
@@ -1691,8 +1691,8 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                           final imageUrl = restaurant['photo_url'] ?? restaurant['image_url'];
                                           return WebImageHelper.buildRestaurantImage(
                                             imageUrl,
-                                            width: 118,
-                                            height: 118,
+                                            width: 121,
+                                            height: 121,
                                             borderRadius: const BorderRadius.horizontal(
                                               left: Radius.circular(16),
                                             ),
@@ -1793,14 +1793,14 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                                   Icon(
                                                     Icons.monetization_on,
                                                     size: 10,
-                                                    color: Colors.pink[400],
+                                                    color: Colors.grey[600],
                                                   ),
                                                   const SizedBox(width: 2),
                                                   Text(
                                                     restaurant['price_range'].toString(),
                                                     style: TextStyle(
                                                       fontSize: 10,
-                                                      color: Colors.pink[600],
+                                                      color: Colors.grey[600],
                                                       fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
@@ -1854,7 +1854,7 @@ class _RestaurantSearchPageState extends State<RestaurantSearchPage> {
                                               child: Container(
                                                 padding: const EdgeInsets.all(6),
                                                 decoration: BoxDecoration(
-                                                  color: isLiked ? Colors.pink : Colors.grey[200],
+                                                  color: isLiked ? Colors.grey[600] : Colors.grey[200],
                                                   borderRadius: BorderRadius.circular(12),
                                                 ),
                                                 child: Icon(
@@ -1978,7 +1978,7 @@ void _showRestaurantMenu(BuildContext context, dynamic restaurant) {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange[600],
+                  backgroundColor: Colors.grey[600],
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

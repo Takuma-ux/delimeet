@@ -2834,7 +2834,7 @@ export const getMatchMessages = onCall(
         );
       }
 
-      // メッセージ取得
+      // メッセージ取得（非表示フラグを考慮）
       const result = await pool.query(
         `SELECT 
           m.id,
@@ -2851,9 +2851,16 @@ export const getMatchMessages = onCall(
          FROM messages m
          LEFT JOIN users u ON m.sender_id = u.id AND (u.deactivated_at IS NULL OR u.deactivated_at > NOW())
          WHERE m.match_id = $1
+         AND (
+           -- 送信者が非表示にしていない
+           (m.sender_id = $2 AND m.hidden_by_sender = FALSE)
+           OR
+           -- 受信者が非表示にしていない
+           (m.sender_id != $2 AND m.hidden_by_receiver = FALSE)
+         )
          ORDER BY m.sent_at ASC
-         LIMIT $2`,
-        [matchId, limit]
+         LIMIT $3`,
+        [matchId, userUuid, limit]
       );
 
       console.log("✅ マッチメッセージ取得成功:", result.rows.length, "件");
@@ -2866,6 +2873,160 @@ export const getMatchMessages = onCall(
       throw new functions.https.HttpsError(
         "internal",
         "メッセージの取得に失敗しました"
+      );
+    }
+  }
+);
+
+// メッセージ非表示機能
+export const hideMessages = onCall(
+  async (request: CallableRequest<{matchId: string; hideAsSender?: boolean; hideAsReceiver?: boolean}>) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "ログインが必要です");
+    }
+
+    const firebaseUid = request.auth.uid;
+    const {matchId, hideAsSender = true, hideAsReceiver = true} = request.data;
+
+    console.log(
+      "🔍 メッセージ非表示:",
+      `firebaseUid=${firebaseUid}, matchId=${matchId}`
+    );
+
+    try {
+      // Firebase UIDからユーザーのUUID IDを取得
+      const userUuid = await getUserUuidFromFirebaseUid(firebaseUid);
+      if (!userUuid) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "ユーザーが見つかりません"
+        );
+      }
+
+      // マッチへのアクセス権限確認
+      const matchCheck = await pool.query(
+        `SELECT m.id FROM matches m
+         WHERE m.id = $1 
+         AND (m.user1_id = $2 OR m.user2_id = $2) 
+         AND m.status = 'active'`,
+        [matchId, userUuid]
+      );
+
+      if (matchCheck.rows.length === 0) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "このマッチにアクセスする権限がありません"
+        );
+      }
+
+      // メッセージを非表示にする
+      const result = await pool.query(
+        `UPDATE messages 
+         SET 
+           hidden_by_sender = CASE 
+             WHEN sender_id = $1 THEN $2 
+             ELSE hidden_by_sender 
+           END,
+           hidden_by_receiver = CASE 
+             WHEN sender_id != $1 THEN $3 
+             ELSE hidden_by_receiver 
+           END
+         WHERE match_id = $4
+         AND (
+           (sender_id = $1 AND $2 = TRUE)
+           OR 
+           (sender_id != $1 AND $3 = TRUE)
+         )
+         RETURNING id`,
+        [userUuid, hideAsSender, hideAsReceiver, matchId]
+      );
+
+      console.log("✅ メッセージ非表示成功:", result.rows.length, "件");
+      return {
+        hiddenCount: result.rows.length,
+      };
+    } catch (err) {
+      console.error("❌ メッセージ非表示失敗:", err);
+      throw new functions.https.HttpsError(
+        "internal",
+        "メッセージの非表示に失敗しました"
+      );
+    }
+  }
+);
+
+// 非表示メッセージを表示に戻す機能
+export const showMessages = onCall(
+  async (request: CallableRequest<{matchId: string; showAsSender?: boolean; showAsReceiver?: boolean}>) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "ログインが必要です");
+    }
+
+    const firebaseUid = request.auth.uid;
+    const {matchId, showAsSender = true, showAsReceiver = true} = request.data;
+
+    console.log(
+      "🔍 メッセージ表示復旧:",
+      `firebaseUid=${firebaseUid}, matchId=${matchId}`
+    );
+
+    try {
+      // Firebase UIDからユーザーのUUID IDを取得
+      const userUuid = await getUserUuidFromFirebaseUid(firebaseUid);
+      if (!userUuid) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "ユーザーが見つかりません"
+        );
+      }
+
+      // マッチへのアクセス権限確認
+      const matchCheck = await pool.query(
+        `SELECT m.id FROM matches m
+         WHERE m.id = $1 
+         AND (m.user1_id = $2 OR m.user2_id = $2) 
+         AND m.status = 'active'`,
+        [matchId, userUuid]
+      );
+
+      if (matchCheck.rows.length === 0) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "このマッチにアクセスする権限がありません"
+        );
+      }
+
+      // メッセージを表示に戻す
+      const result = await pool.query(
+        `UPDATE messages 
+         SET 
+           hidden_by_sender = CASE 
+             WHEN sender_id = $1 THEN NOT $2 
+             ELSE hidden_by_sender 
+           END,
+           hidden_by_receiver = CASE 
+             WHEN sender_id != $1 THEN NOT $3 
+             ELSE hidden_by_receiver 
+           END
+         WHERE match_id = $4
+         AND (
+           (sender_id = $1 AND $2 = TRUE)
+           OR 
+           (sender_id != $1 AND $3 = TRUE)
+         )
+         RETURNING id`,
+        [userUuid, showAsSender, showAsReceiver, matchId]
+      );
+
+      console.log("✅ メッセージ表示復旧成功:", result.rows.length, "件");
+      return {
+        shownCount: result.rows.length,
+      };
+    } catch (err) {
+      console.error("❌ メッセージ表示復旧失敗:", err);
+      throw new functions.https.HttpsError(
+        "internal",
+        "メッセージの表示復旧に失敗しました"
       );
     }
   }

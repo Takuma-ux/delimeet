@@ -9,7 +9,7 @@ Future<void> main() async {
   // 🚨🚨🚨 危険: 本番環境では絶対に実行しないこと！🚨🚨🚨
   // このスクリプトは全ての本人確認書類を削除します
   
-  const bool isDevelopment = true; // 本番リリース時は必ずfalseに変更
+  const bool isDevelopment = false; // 本番リリース時は必ずfalseに変更
   const bool confirmDeletion = false; // 削除を実行する場合のみtrueに変更
   
   if (!isDevelopment) {

@@ -9,6 +9,8 @@ import 'restaurant_detail_page.dart';
 import '../services/web_image_helper.dart';
 import '../models/restaurant_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LikesPage extends StatefulWidget {
   const LikesPage({super.key});
@@ -25,6 +27,9 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
   Set<String> _currentLikedRestaurants = {};
   bool _isLoading = true;
 
+  Set<String> _likedUsers = {}; // 追加
+  String? _myUserId; // 自分のユーザーIDを保存
+
   // キャッシュキー
   static const String _sentLikesKey = 'likes_sent_cache';
   static const String _receivedLikesKey = 'likes_received_cache';
@@ -36,7 +41,56 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadLikesFromCache();
+    _initializeLikesPage();
+  }
+
+  Future<void> _initializeLikesPage() async {
+    setState(() { _isLoading = true; });
+    await _initializeMyUserId();
+    await _loadUserLikes();
+    await _loadLikesFromCache();
+    setState(() { _isLoading = false; });
+  }
+
+  /// 自分のユーザーIDを初期化
+  Future<void> _initializeMyUserId() async {
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        final userResult = await Supabase.instance.client
+            .from('users')
+            .select('id')
+            .eq('firebase_uid', firebaseUser.uid)
+            .single();
+        
+        if (mounted) {
+          setState(() {
+            _myUserId = userResult['id']?.toString();
+          });
+        }
+      }
+    } catch (e) {
+      // エラーハンドリング
+    }
+  }
+
+  Future<void> _loadUserLikes() async {
+    try {
+      final HttpsCallable callable =
+          FirebaseFunctions.instance.httpsCallable('getUserLikes');
+      final result = await callable().timeout(const Duration(seconds: 3));
+      
+      if (mounted) {
+        final sentLikes = List.from(result.data['sentLikes'] ?? []);
+    setState(() {
+          _likedUsers = Set<String>.from(
+            sentLikes.map((like) => like['liked_user_id']?.toString() ?? '').where((id) => id.isNotEmpty)
+          );
+    });
+      }
+    } catch (e) {
+      // いいね状態取得エラー: $e
+    }
   }
 
   Future<void> _loadLikesFromCache() async {
@@ -307,7 +361,7 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
     return Scaffold(
       appBar: AppBar(
         title: const Text('いいね'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFF6BFBC),
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -385,7 +439,7 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
                               like['user_id'] ?? 
                               like['firebase_uid'];
                 if (userId != null && userId.toString().isNotEmpty) {
-                  print('いいね送信: ユーザープロフィールに遷移 - $userId');
+                  // print('いいね送信: ユーザープロフィールに遷移 - $userId');
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -395,9 +449,9 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
                     ),
                   );
                 } else {
-                  print('いいね送信: ユーザーIDが見つかりません - $like');
+                  // print('いいね送信: ユーザーIDが見つかりません - $like');
                   // 利用可能なフィールドをすべて出力してデバッグ
-                  print('利用可能なフィールド: ${like.keys.toList()}');
+                  // print('利用可能なフィールド: ${like.keys.toList()}');
                 }
               },
               leading: CircleAvatar(
@@ -423,7 +477,7 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
               ),
               trailing: const Icon(
                 Icons.favorite,
-                color: Colors.pink,
+                color: const Color(0xFFF6BFBC),
                 size: 24,
               ),
             ),
@@ -457,79 +511,129 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
     }
 
     return RefreshIndicator(
-      onRefresh: _loadLikes,
+      onRefresh: () async {
+        await _loadUserLikes();
+        await _loadLikes();
+      },
       child: ListView.builder(
         itemCount: _receivedLikes.length,
         itemBuilder: (context, index) {
           final like = _receivedLikes[index];
+          final targetUserId = like['liker_id'] ?? like['sender_id'] ?? like['id'] ?? like['user_id'] ?? like['firebase_uid'];
+          final isLiked = _likedUsers.contains(targetUserId?.toString());
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(12),
-              onTap: () {
-                // 複数のIDフィールドを確認してユーザーIDを取得
-                final userId = like['liker_id'] ?? 
-                              like['sender_id'] ?? 
-                              like['id'] ?? 
-                              like['user_id'] ?? 
-                              like['firebase_uid'];
-                if (userId != null && userId.toString().isNotEmpty) {
-                  print('いいね受信: ユーザープロフィールに遷移 - $userId');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProfileViewPage(
-                        userId: userId.toString(),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // アイコン
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundImage: like['image_url'] != null
+                        ? NetworkImage(like['image_url'])
+                        : null,
+                    child: like['image_url'] == null
+                        ? const Icon(Icons.person, size: 30)
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  // ユーザー情報
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        if (targetUserId != null && targetUserId.toString().isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileViewPage(
+                                userId: targetUserId.toString(),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            like['name'] ?? '名前未設定',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text('${like['age'] ?? '?'}歳 • ${like['gender'] ?? '未設定'}'),
+                          if (like['occupation'] != null)
+                            Text(like['occupation']),
+                        ],
                       ),
                     ),
-                  );
-                } else {
-                  print('いいね受信: ユーザーIDが見つかりません - $like');
-                  // 利用可能なフィールドをすべて出力してデバッグ
-                  print('利用可能なフィールド: ${like.keys.toList()}');
-                }
-              },
-              leading: CircleAvatar(
-                radius: 30,
-                backgroundImage: like['image_url'] != null
-                    ? NetworkImage(like['image_url'])
-                    : null,
-                child: like['image_url'] == null
-                    ? const Icon(Icons.person, size: 30)
-                    : null,
-              ),
-              title: Text(
-                like['name'] ?? '名前未設定',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${like['age'] ?? '?'}歳 • ${like['gender'] ?? '未設定'}'),
-                  if (like['occupation'] != null)
-                    Text(like['occupation']),
+                  ),
+                  // ハートボタン
+                  IconButton(
+                    icon: Icon(
+                      isLiked ? Icons.favorite : Icons.favorite_border,
+                      color: isLiked ? const Color(0xFFF6BFBC) : Colors.grey,
+                      size: 24,
+                    ),
+                    onPressed: isLiked
+                        ? null
+                        : () async {
+                            final targetId = targetUserId?.toString();
+                            // print('DEBUG myUserId: $_myUserId, targetId: $targetId');
+                            if (_myUserId == null || targetId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('いいね操作に失敗しました: ユーザーIDが取得できません'),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            
+                            // いいね追加のUIを更新
+                              setState(() {
+                                _likedUsers.add(targetId);
+                              });
+                            
+                            // バックグラウンドでAPI呼び出し
+                            try {
+                              final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('addUserLike');
+                              
+                              // タイムアウトを短く設定
+                              await callable({'likedUserId': targetId}).timeout(const Duration(seconds: 5));
+                              
+                            } catch (e) {
+                              // エラー時のみUIを元に戻す
+                              if (mounted) {
+                                setState(() {
+                                  _likedUsers.remove(targetId);
+                                });
+                                
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('いいね操作に失敗しました: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              }
+                            }
+                          },
+                  ),
                 ],
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.pink[50],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.favorite, color: Colors.pink, size: 16),
-                    SizedBox(width: 4),
-                    Text('受信', style: TextStyle(color: Colors.pink, fontSize: 12)),
-                  ],
-                ),
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  Future<bool> _checkIfAlreadyLiked(String? myUserId, dynamic targetUserId) async {
+    if (targetUserId == null) return false;
+    
+    // 保存されたいいね状態を使用
+    return _likedUsers.contains(targetUserId.toString());
   }
 
   Widget _buildRestaurantsTab() {
@@ -573,7 +677,7 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
               onTap: () {
                 // レストラン詳細画面への遷移
                 final restaurantId = restaurant['id']?.toString() ?? '';
-                print('レストラン詳細画面に遷移 - $restaurantId: ${restaurant['name']}');
+                // print('レストラン詳細画面に遷移 - $restaurantId: ${restaurant['name']}');
                 
                 final restaurantModel = Restaurant(
                   id: restaurant['id'],
@@ -766,14 +870,14 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
                                               Icon(
                                                 Icons.monetization_on,
                                                 size: 10,
-                                                color: Colors.pink[400],
+                                                color: const Color(0xFFFFFACD),
                                               ),
                                               const SizedBox(width: 1),
                                               Text(
                                                 restaurant['price_range'].toString(),
                                                 style: TextStyle(
                                                   fontSize: 10,
-                                                  color: Colors.pink[600],
+                                                  color: const Color(0xFFF6BFBC),
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                               ),
@@ -808,7 +912,7 @@ class _LikesPageState extends State<LikesPage> with SingleTickerProviderStateMix
                                         child: Container(
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
-                                            color: currentLikeState ? Colors.pink : Colors.grey[200],
+                                            color: currentLikeState ? const Color(0xFFF6BFBC) : Colors.grey[200],
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Icon(

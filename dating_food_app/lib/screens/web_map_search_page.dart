@@ -1,9 +1,13 @@
+// Web版でのみコンパイルされるファイル
+// ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+// Web版でのみ使用されるライブラリ
 import 'dart:html' as html;
 import 'dart:js' as js;
 import 'dart:ui_web' as ui_web;
@@ -18,8 +22,9 @@ import 'profile_view_page.dart';
 import 'restaurant_detail_page.dart';
 import 'create_group_page.dart'; // Added import for CreateGroupPage
 
+// Web版専用のページなので、Web版でのみ使用可能
 class WebMapSearchPage extends StatefulWidget {
-  const WebMapSearchPage({super.key});
+  const WebMapSearchPage({Key? key}) : super(key: key);
 
   @override
   State<WebMapSearchPage> createState() => _WebMapSearchPageState();
@@ -601,7 +606,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
                 icon: const Icon(Icons.group_add),
                 label: const Text('グループに参加'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink.shade400,
+                  backgroundColor: const Color(0xFFFFFACD),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                   shape: RoundedRectangleBorder(
@@ -800,7 +805,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('近くのレストラン'),
-        backgroundColor: Colors.pink.shade400,
+        backgroundColor: const Color(0xFFFFFACD),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -838,8 +843,8 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
                       });
                       _searchRestaurants();
                     },
-                    selectedColor: Colors.pink.shade100,
-                    checkmarkColor: Colors.pink.shade600,
+                    selectedColor: const Color(0xFFFDF5E6),
+                    checkmarkColor: const Color(0xFFFFEFD5),
                   ),
                 );
               },
@@ -965,7 +970,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
           // リフレッシュボタン
           FloatingActionButton(
             onPressed: _searchRestaurants,
-            backgroundColor: Colors.pink.shade400,
+            backgroundColor: const Color(0xFFFFFACD),
             child: const Icon(Icons.refresh, color: Colors.white),
             heroTag: "refresh_btn", // 複数FABのためのタグ
           ),
@@ -1140,7 +1145,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
                   IconButton(
                     icon: const Icon(Icons.info_outline),
                     onPressed: () => _showRestaurantActionDialog(restaurant),
-                    color: Colors.pink.shade400,
+                    color: const Color(0xFFFFFACD),
                   ),
                 ],
               ),
@@ -1291,7 +1296,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
                       icon: const Icon(Icons.group_add),
                       label: const Text('募集作成'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pink.shade400,
+                        backgroundColor: const Color(0xFFFFFACD),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -1517,7 +1522,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
                         icon: const Icon(Icons.group_add),
                         label: const Text('募集作成'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink.shade400,
+                          backgroundColor: const Color(0xFFFFFACD),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
@@ -1598,8 +1603,8 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
                       Card(
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.pink.shade100,
-                            child: Icon(Icons.favorite, color: Colors.pink.shade600),
+                            backgroundColor: const Color(0xFFFDF5E6),
+                            child: Icon(Icons.favorite, color: const Color(0xFFFFEFD5)),
                           ),
                           title: const Text('デートリクエスト'),
                           subtitle: const Text('1対1のデートを募集'),
@@ -1646,7 +1651,7 @@ class _WebMapSearchPageState extends State<WebMapSearchPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${restaurant.name}でのデートリクエスト作成機能は準備中です'),
-        backgroundColor: Colors.pink.shade400,
+        backgroundColor: const Color(0xFFFFFACD),
       ),
     );
   }

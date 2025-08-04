@@ -149,7 +149,7 @@ class _GroupSearchPageState extends State<GroupSearchPage> {
             color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.pink[400],
+        backgroundColor: const Color(0xFFF6BFBC),
         elevation: 0,
       ),
       body: Column(
@@ -282,7 +282,7 @@ class _GroupSearchPageState extends State<GroupSearchPage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                      valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFF6BFBC)),
                     ),
                   );
                 }
@@ -561,14 +561,14 @@ class _GroupSearchPageState extends State<GroupSearchPage> {
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.pink.shade50,
+                                color: const Color(0xFFFDF5E6),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.pink.shade200),
+                                border: Border.all(color: const Color(0xFFF6BFBC)),
                               ),
                               child: Text(
                                 '#$tag',
                                 style: TextStyle(
-                                  color: Colors.pink.shade700,
+                                  color: const Color(0xFFF6BFBC),
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
                                 ),

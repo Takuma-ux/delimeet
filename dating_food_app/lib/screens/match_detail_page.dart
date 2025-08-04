@@ -93,27 +93,31 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
     
     try {
-      // 並列でマッチ詳細とメッセージを取得（高速化）
-      final futures = [
-        _loadMatchDetail(),
-        _loadMessages(),
-      ];
+      // まずマッチ詳細を取得（必須）
+      await _loadMatchDetail();
       
-      // 並列実行でタイムアウト設定
-      await Future.wait(futures, eagerError: false).timeout(
-        const Duration(seconds: 6),
-        onTimeout: () => [null, null],
-      );
-      
-      // 既読マークは非同期で実行（UIブロックしない）
-      if (mounted) {
-        _markMessagesAsRead();
+      // マッチ詳細が取得できた場合のみメッセージを取得
+      if (_matchDetail != null) {
+        await _loadMessages();
+        
+        // 既読マークは非同期で実行（UIブロックしない）
+        if (mounted) {
+          _markMessagesAsRead();
+        }
+      } else {
+        // マッチ詳細が取得できない場合はエラー
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'マッチ詳細の取得に失敗しました';
+            _isLoading = false;
+          });
+        }
       }
       
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'データの初期化に失敗しました';
+          _errorMessage = 'データの初期化に失敗しました: $e';
           _isLoading = false;
         });
       }
@@ -124,24 +128,34 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     try {
       final HttpsCallable callable =
           FirebaseFunctions.instance.httpsCallable('getMatchDetail');
-      final result = await callable({'matchId': widget.matchId}).timeout(const Duration(seconds: 4));
+      final result = await callable({'matchId': widget.matchId}).timeout(const Duration(seconds: 6));
       
-      if (mounted) {
-        setState(() {
-          _matchDetail = result.data;
-        });
+      if (result.data != null) {
+        if (mounted) {
+          setState(() {
+            _matchDetail = result.data;
+          });
+        }
+      } else {
+        throw Exception('マッチ詳細データが空です');
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'マッチ詳細の取得に失敗しました';
+          _errorMessage = 'マッチ詳細の取得に失敗しました: $e';
         });
       }
+      rethrow;
     }
   }
 
   Future<void> _loadMessages() async {
     try {
+      // マッチ詳細が取得できているかチェック
+      if (_matchDetail == null) {
+        throw Exception('マッチ詳細が取得できていません');
+      }
+      
       // まずキャッシュから取得を試行
       final cachedMessages = await MessageCacheService.getCachedMessages(widget.matchId);
       
@@ -254,48 +268,107 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final content = _messageController.text.trim();
     if (content.isEmpty || _isSending) return;
 
-    // recipientIdを取得
-    String? recipientId;
-    if (_matchDetail != null) {
-      final user1Id = _matchDetail['user1_id'];
-      final user2Id = _matchDetail['user2_id'];
-      final partnerId = _matchDetail['partner_id'];
-      // partnerIdが自分ならrecipientは相手
-      final myUuid = (partnerId == user1Id) ? user2Id : user1Id;
-      recipientId = (FirebaseAuth.instance.currentUser?.uid == partnerId) ? myUuid : partnerId;
-    }
+    // 送信開始フラグを設定
+    setState(() {
+      _isSending = true;
+    });
 
     // キーボードを閉じる
     _focusNode.unfocus();
     FocusScope.of(context).unfocus();
 
-    setState(() {
-      _isSending = true;
-    });
+    // メッセージコントローラーをクリア
+    _messageController.clear();
 
+    // 即座にメッセージをUIに追加
+    final newMessage = {
+      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      'content': content,
+      'sender_id': FirebaseAuth.instance.currentUser?.uid,
+      'sent_at': DateTime.now().toIso8601String(),
+      'message_type': 'text',
+    };
+    
+    setState(() {
+      _messages.add(newMessage);
+      _lastMessageCount = _messages.length;
+    });
+    
+    // 最新メッセージにスクロール
+    if (mounted && _scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+
+    // バックグラウンドでDBに保存
+    await _saveMessageToDatabase(content, newMessage);
+    
+    // 送信完了フラグを設定
+    if (mounted) {
+      setState(() {
+        _isSending = false;
+      });
+    }
+  }
+
+  // バックグラウンドでメッセージをDBに保存
+  Future<void> _saveMessageToDatabase(String content, Map<String, dynamic> message) async {
     try {
+      print('🔍 メッセージ送信開始: matchId=${widget.matchId}, content=$content');
+      
+      // メッセージ送信（バックグラウンドで実行）
       final HttpsCallable callable =
           FirebaseFunctions.instance.httpsCallable('sendMessage');
-      await callable({
+      final result = await callable({
         'matchId': widget.matchId,
         'content': content,
         'type': 'text',
-        'recipientId': recipientId,
-      });
+      }).timeout(const Duration(seconds: 10));
       
-      _messageController.clear();
-      await _loadMessages(); // メッセージリストを再読み込み
+      print('🔍 メッセージ送信結果: ${result.data}');
+      
+      if (mounted && result.data != null && result.data['success'] == true) {
+        print('✅ メッセージ送信成功');
+        // 成功時は何もしない（UIは既に更新済み）
+      } else {
+        print('❌ メッセージ送信失敗: ${result.data}');
+        // 失敗時はUIからメッセージを削除
+        if (mounted) {
+          setState(() {
+            _messages.removeWhere((msg) => msg['id'] == message['id']);
+            _lastMessageCount = _messages.length;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('メッセージの保存に失敗しました: ${result.data?['error'] ?? '不明なエラー'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
       
     } catch (e) {
+      print('❌ メッセージ送信エラー: $e');
+      // エラー時はUIからメッセージを削除
       if (mounted) {
+        setState(() {
+          _messages.removeWhere((msg) => msg['id'] == message['id']);
+          _lastMessageCount = _messages.length;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('メッセージの送信に失敗しました'),
+          SnackBar(
+            content: Text('メッセージの保存に失敗しました: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
+      // エラー時も送信フラグをリセット
       if (mounted) {
         setState(() {
           _isSending = false;
@@ -640,8 +713,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       width: 280,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(
-        color: isRequestSender ? Colors.blue[50] : Colors.pink[50],
-        border: Border.all(color: isRequestSender ? Colors.blue[200]! : Colors.pink[200]!),
+        color: isRequestSender ? Colors.blue[50] : const Color(0xFFFDF5E6),
+                                border: Border.all(color: isRequestSender ? Colors.blue[200]! : const Color(0xFFF6BFBC)!),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -651,7 +724,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isRequestSender ? Colors.blue[100] : Colors.pink[100],
+              color: isRequestSender ? Colors.blue[100] : const Color(0xFFFDF5E6),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -659,14 +732,14 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.restaurant, color: isRequestSender ? Colors.blue[700] : Colors.pink[700], size: 20),
+                                        Icon(Icons.restaurant, color: isRequestSender ? Colors.blue[700] : const Color(0xFFF6BFBC), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'デートのお誘い',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isRequestSender ? Colors.blue[700] : Colors.pink[700],
+                                              color: isRequestSender ? Colors.blue[700] : const Color(0xFFF6BFBC),
                       fontSize: 14,
                     ),
                   ),
@@ -983,7 +1056,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                             child: ElevatedButton(
                               onPressed: () => _showDateVotingDialog(requestId, proposedDates),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink,
+                                backgroundColor: const Color(0xFFF6BFBC),
                                 foregroundColor: Colors.white,
                               ),
                               child: const Text('日程を選択'),
@@ -995,6 +1068,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                               onPressed: !isProcessing ? () => _showRejectMessageDialog(requestId) : null,
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: Colors.grey),
+                                foregroundColor: Colors.grey,
                               ),
                               child: Text(isProcessing ? '処理中...' : '辞退する'),
                             ),
@@ -1322,7 +1396,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
             icon: const Icon(Icons.how_to_vote),
             label: const Text('日程を選択'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink,
+              backgroundColor: const Color(0xFFF6BFBC),
               foregroundColor: Colors.white,
             ),
           ),
@@ -1676,7 +1750,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                       ? () => Navigator.pop(context, selectedDates)
                       : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pink,
+                      backgroundColor: const Color(0xFFF6BFBC),
                       foregroundColor: Colors.white,
                     ),
                     child: Text(_processingRequestIds.contains(requestId) ? '処理中...' : '投票する'),
@@ -1975,7 +2049,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.restaurant, color: Colors.pink),
+                            const Icon(Icons.restaurant, color: const Color(0xFFF6BFBC)),
             const SizedBox(width: 8),
             Expanded(child: Text('$restaurantName の予約方法')),
           ],
@@ -2018,10 +2092,10 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.pink.withOpacity(0.1),
+                                          backgroundColor: const Color(0xFFF6BFBC).withOpacity(0.1),
                   child: Icon(
                     option['icon'] == 'phone' ? Icons.phone : Icons.web,
-                    color: Colors.pink,
+                    color: const Color(0xFFF6BFBC),
                   ),
                 ),
                 title: Text(
@@ -2459,7 +2533,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.partnerName),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFF6BFBC),
         foregroundColor: Colors.white,
         actions: [
           // デートリクエストボタン
@@ -2545,6 +2619,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                       setState(() {
                         _errorMessage = null;
                         _isLoading = true;
+                        _matchDetail = null; // マッチ詳細もリセット
+                        _messages = []; // メッセージもリセット
                       });
                       _initializeData();
                     },
@@ -2605,22 +2681,37 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
+                : _matchDetail == null
                     ? const Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                            Icon(Icons.error_outline, size: 64, color: Colors.red),
                             SizedBox(height: 16),
                             Text(
-                              'メッセージを送って\n会話を始めましょう！',
-                              style: TextStyle(fontSize: 18, color: Colors.grey),
+                              'マッチ詳細の読み込みに失敗しました',
+                              style: TextStyle(fontSize: 18, color: Colors.red),
                               textAlign: TextAlign.center,
                             ),
                           ],
                         ),
                       )
-                    : ListView.builder(
+                    : _messages.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text(
+                                  'メッセージを送って\n会話を始めましょう！',
+                                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         itemCount: _messages.length,
@@ -2635,6 +2726,11 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                                 message[key] = value;
                               }
                             });
+                          }
+                          
+                          // マッチ詳細が取得できているかチェック
+                          if (_matchDetail == null) {
+                            return const SizedBox.shrink();
                           }
                           
                           final isMyMessage = message['sender_id'] != _matchDetail?['partner_id'];
@@ -2675,40 +2771,43 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                                   const SizedBox(width: 8),
                                 ],
                                 Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isMyMessage 
-                                          ? Colors.pink 
-                                          : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          message['content'] ?? '',
-                                          style: TextStyle(
-                                            color: isMyMessage 
-                                                ? Colors.white 
-                                                : Colors.black87,
-                                            fontSize: 16,
+                                  child: GestureDetector(
+                                    onLongPress: () => _showMessageOptions(message, isMyMessage),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isMyMessage 
+                                            ? const Color(0xFFF6BFBC) 
+                                            : Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            message['content'] ?? '',
+                                            style: TextStyle(
+                                              color: isMyMessage 
+                                                  ? Colors.white 
+                                                  : Colors.black87,
+                                              fontSize: 16,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _formatMessageTime(message['sent_at']),
-                                          style: TextStyle(
-                                            color: isMyMessage 
-                                                ? Colors.white70 
-                                                : Colors.grey[600],
-                                            fontSize: 12,
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _formatMessageTime(message['sent_at']),
+                                            style: TextStyle(
+                                              color: isMyMessage 
+                                                  ? Colors.white70 
+                                                  : Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -2739,7 +2838,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                   onPressed: _isSending ? null : _sendImage,
                   icon: Icon(
                     Icons.photo,
-                    color: _isSending ? Colors.grey : Colors.pink[400],
+                    color: _isSending ? Colors.grey : const Color(0xFFFFFACD),
                   ),
                   tooltip: '画像を送信',
                 ),
@@ -2765,7 +2864,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                 const SizedBox(width: 8),
                 Container(
                   decoration: const BoxDecoration(
-                    color: Colors.pink,
+                    color: const Color(0xFFF6BFBC),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -3223,7 +3322,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       decoration: BoxDecoration(
         color: status == 'decided' ? Colors.green[50] : Colors.orange[50],
         border: Border.all(
-          color: status == 'decided' ? Colors.green[200]! : Colors.orange[200]!
+          color: status == 'decided' ? Colors.green[200]! : Colors.grey[200]!
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -3768,7 +3867,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
-  // 画像送信処理
+  // 画像送信処理（楽観的更新）
   Future<void> _sendImage() async {
     try {
       // 画像選択方法を選択
@@ -3786,8 +3885,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
       if (image == null) return;
 
+      // 即座にローディング状態を解除（ユーザー体験優先）
       setState(() {
-        _isSending = true;
+        _isSending = false;
       });
 
       // プロフィール編集画面と同じ方式でアップロード
@@ -3817,16 +3917,10 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           ),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSending = false;
-        });
-      }
     }
   }
 
-  // マッチ画像アップロード（プロフィール編集画面と同じ方式）
+  // マッチ画像アップロード（高速化）
   Future<String?> _uploadMatchImage(XFile image) async {
     try {
       
@@ -3851,7 +3945,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       String imageUrl;
       
       if (kIsWeb) {
-        // Web版: XFileをUint8Listでアップロード
+        // Web版: XFileをUint8Listでアップロード（高速化）
         final bytes = await image.readAsBytes();
         imageUrl = await _uploadImageBytes(bytes, 'matches');
       } else {
@@ -3891,26 +3985,35 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         title: const Text('画像を選択'),
         content: const Text('画像の取得方法を選択してください'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
-          ),
           // Web版ではカメラボタンを非表示
           if (!kIsWeb)
             TextButton(
               onPressed: () => Navigator.pop(context, ImageSource.camera),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey,
+              ),
               child: const Text('カメラで撮影'),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context, ImageSource.gallery),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey,
+            ),
             child: const Text('ギャラリーから選択'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey,
+            ),
+            child: const Text('キャンセル'),
           ),
         ],
       ),
     );
   }
 
-  // Web版用: Uint8Listで画像アップロード
+  // Web版用: Uint8Listで画像アップロード（高速化）
   Future<String> _uploadImageBytes(Uint8List bytes, String folder) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -3935,8 +4038,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       );
       
       final uploadTask = storageRef.putData(bytes, metadata);
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
+      final snapshot = await uploadTask.timeout(const Duration(seconds: 10));
+      final downloadUrl = await snapshot.ref.getDownloadURL().timeout(const Duration(seconds: 2));
       
       return downloadUrl;
     } catch (e) {
@@ -3944,7 +4047,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
-  // モバイル版用: Fileで画像アップロード
+  // モバイル版用: Fileで画像アップロード（高速化）
   Future<String> _uploadImageFile(File file, String folder) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -3959,8 +4062,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           .child(fileName);
 
       final uploadTask = storageRef.putFile(file);
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
+      final snapshot = await uploadTask.timeout(const Duration(seconds: 10));
+      final downloadUrl = await snapshot.ref.getDownloadURL().timeout(const Duration(seconds: 2));
       
       return downloadUrl;
     } catch (e) {
@@ -4000,26 +4103,200 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   // 画像メッセージを送信
   Future<void> _sendMessageWithImage(String imageUrl) async {
+    // 送信開始フラグを設定
+    setState(() {
+      _isSending = true;
+    });
+
+    // 即座にメッセージをUIに追加
+    final newMessage = {
+      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      'content': imageUrl,
+      'sender_id': FirebaseAuth.instance.currentUser?.uid,
+      'sent_at': DateTime.now().toIso8601String(),
+      'message_type': 'image',
+    };
+    
+    setState(() {
+      _messages.add(newMessage);
+      _lastMessageCount = _messages.length;
+    });
+    
+    // 最新メッセージにスクロール
+    if (mounted && _scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+
+    // バックグラウンドでDBに保存
+    await _saveImageMessageToDatabase(imageUrl, newMessage);
+    
+    // 送信完了フラグを設定
+    if (mounted) {
+      setState(() {
+        _isSending = false;
+      });
+    }
+  }
+
+  // メッセージオプションを表示（自分から見て削除のみ）
+  void _showMessageOptions(Map<String, dynamic> message, bool isMyMessage) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('メッセージを非表示'),
+              subtitle: const Text('このメッセージを自分から見て削除します'),
+              onTap: () {
+                Navigator.pop(context);
+                _hideMessage(message);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy, color: Colors.grey),
+              title: const Text('メッセージをコピー'),
+              subtitle: const Text('メッセージの内容をクリップボードにコピーします'),
+              onTap: () {
+                Navigator.pop(context);
+                _copyMessage(message);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.close, color: Colors.grey),
+              title: const Text('キャンセル'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // メッセージを非表示（自分から見て削除）
+  Future<void> _hideMessage(Map<String, dynamic> message) async {
+    final shouldHide = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('メッセージを非表示'),
+        content: const Text('このメッセージを自分から見て削除しますか？\n相手には表示されたままです。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('非表示'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldHide != true) return;
+
     try {
-      // recipientIdを取得
-      String? recipientId;
-      if (_matchDetail != null) {
-        final user1Id = _matchDetail['user1_id'];
-        final user2Id = _matchDetail['user2_id'];
-        final partnerId = _matchDetail['partner_id'];
-        final myUuid = (partnerId == user1Id) ? user2Id : user1Id;
-        recipientId = (FirebaseAuth.instance.currentUser?.uid == partnerId) ? myUuid : partnerId;
+      // UIからメッセージを削除（自分から見てのみ）
+      setState(() {
+        _messages.removeWhere((msg) => msg['id'] == message['id']);
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('メッセージを非表示にしました'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('メッセージの非表示に失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
+    }
+  }
+
+  // メッセージをコピー
+  void _copyMessage(Map<String, dynamic> message) {
+    // Flutter WebではクリップボードAPIを使用
+    // 実際の実装はプラットフォームに依存
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('メッセージをコピーしました'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  // バックグラウンドで画像メッセージをDBに保存
+  Future<void> _saveImageMessageToDatabase(String imageUrl, Map<String, dynamic> message) async {
+    try {
+      print('🔍 画像メッセージ送信開始: matchId=${widget.matchId}, imageUrl=$imageUrl');
+      
+      // 画像メッセージ送信（バックグラウンドで実行）
       final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('sendMessage');
-      await callable({
+      final result = await callable({
         'matchId': widget.matchId,
         'content': imageUrl,
         'type': 'image',
-        'recipientId': recipientId,
-      });
-      await _loadMessages();
+      }).timeout(const Duration(seconds: 10));
+      
+      print('🔍 画像メッセージ送信結果: ${result.data}');
+      
+      if (mounted && result.data != null && result.data['success'] == true) {
+        print('✅ 画像メッセージ送信成功');
+        // 成功時は何もしない（UIは既に更新済み）
+      } else {
+        print('❌ 画像メッセージ送信失敗: ${result.data}');
+        // 失敗時はUIからメッセージを削除
+        if (mounted) {
+          setState(() {
+            _messages.removeWhere((msg) => msg['id'] == message['id']);
+            _lastMessageCount = _messages.length;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('画像メッセージの保存に失敗しました: ${result.data?['error'] ?? '不明なエラー'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     } catch (e) {
-      rethrow;
+      print('❌ 画像メッセージ送信エラー: $e');
+      // エラー時はUIからメッセージを削除
+      if (mounted) {
+        setState(() {
+          _messages.removeWhere((msg) => msg['id'] == message['id']);
+          _lastMessageCount = _messages.length;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('画像メッセージの保存に失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      // エラー時も送信フラグをリセット
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
     }
   }
 

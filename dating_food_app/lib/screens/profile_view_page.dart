@@ -17,9 +17,11 @@ import '../services/user_image_service.dart';
 import '../services/group_service.dart';
 import '../services/web_image_helper.dart';
 import '../models/group_model.dart';
+import '../models/restaurant_model.dart';
 import 'blocked_users_page.dart';
 import 'profile_edit_page.dart';
 import 'group_chat_page.dart';
+import 'restaurant_detail_page.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:image/image.dart' as img;
@@ -27,6 +29,7 @@ import '../services/instagram_service.dart';
 import 'package:flutter/rendering.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 class ProfileViewPage extends StatefulWidget {
@@ -50,6 +53,8 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
   String? _instagramUsername;
   bool _isLikedUser = false; // ユーザーいいね状態
 
+  String? _myUserId; // ← 追加
+
   // Supabaseクライアント
   final SupabaseClient _supabase = Supabase.instance.client;
   // キャッシュ用
@@ -60,32 +65,62 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
   @override
   void initState() {
     super.initState();
+    _initializeMyUserId();
     _loadAllData();
     _checkInstagramConnection();
     _checkUserLikeStatus(); // いいね状態をチェック
   }
 
+  /// 自分のユーザーIDを初期化
+  Future<void> _initializeMyUserId() async {
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        final userResult = await _supabase
+            .from('users')
+            .select('id')
+            .eq('firebase_uid', firebaseUser.uid)
+            .single();
+        
+        if (mounted) {
+          setState(() {
+            _myUserId = userResult['id']?.toString();
+          });
+        }
+      }
+    } catch (e) {
+      print('ユーザーID初期化エラー: $e');
+    }
+  }
+
   /// ユーザーいいね状態をチェック
   Future<void> _checkUserLikeStatus() async {
-    if (_isOwnProfile()) return; // 自分のプロフィールの場合はスキップ
+    if (_isOwnProfile()) return; // 自分自身ならスキップ
+
+    final targetUserId = widget.userId;
+    if (targetUserId == null) return;
 
     try {
-      final functions = FirebaseFunctions.instanceFor(
-        region: 'us-central1',
-        app: Firebase.app(),
-      );
-      final callable = functions.httpsCallable('checkUserLike');
-      final result = await callable({
-        'targetUserId': widget.userId,
-      }).timeout(const Duration(seconds: 3));
-
+      final HttpsCallable callable =
+          FirebaseFunctions.instance.httpsCallable('getUserLikes');
+      final result = await callable().timeout(const Duration(seconds: 3));
+      
       if (mounted) {
+        final sentLikes = List.from(result.data['sentLikes'] ?? []);
+        final likedUsers = Set<String>.from(
+          sentLikes.map((like) => like['liked_user_id']?.toString() ?? '').where((id) => id.isNotEmpty)
+        );
+        
         setState(() {
-          _isLikedUser = result.data['isLiked'] ?? false;
+          _isLikedUser = likedUsers.contains(targetUserId);
         });
       }
     } catch (e) {
-      // エラー時は何もしない
+      if (mounted) {
+        setState(() {
+          _isLikedUser = false;
+        });
+      }
     }
   }
 
@@ -105,30 +140,32 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
       return;
     }
 
+    final targetUserId = widget.userId;
+    if (targetUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('いいね操作に失敗しました: ユーザーIDが取得できません'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // いいね追加のUIを更新
     setState(() {
       _isLikedUser = true;
     });
 
+    // バックグラウンドでAPI呼び出し
     try {
-      final functions = FirebaseFunctions.instanceFor(
-        region: 'us-central1',
-        app: Firebase.app(),
-      );
-      final callable = functions.httpsCallable('addUserLike');
-      await callable({
-        'likedUserId': widget.userId,
-      }).timeout(const Duration(seconds: 3));
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ユーザーをいいねしました'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('addUserLike');
+      
+      // タイムアウトを短く設定
+      await callable({'likedUserId': targetUserId}).timeout(const Duration(seconds: 5));
+      
     } catch (e) {
+      // エラー時のみUIを元に戻す
       if (mounted) {
         setState(() {
           _isLikedUser = false;
@@ -640,7 +677,7 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
                 child: IconButton(
                   icon: Icon(
                     _isLikedUser ? Icons.favorite : Icons.favorite_border,
-                    color: Colors.pink,
+                    color: _isLikedUser ? const Color(0xFFF6BFBC) : const Color(0xFFFFEFD5),
                   ),
                   onPressed: _toggleUserLike,
                   iconSize: 20,
@@ -713,25 +750,25 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
     return Column(
       children: [
         // DEBUGテキスト削除
-        const SizedBox(height: 32),
+        const SizedBox(height: 50),
         Center(
           child: Container(
-            height: 150,
-            width: 150,
+            height: 120,
+            width: 120,
             alignment: Alignment.center,
             child: CircleAvatar(
-              radius: 70,
+              radius: 55,
               backgroundColor: Colors.grey[300],
               backgroundImage: (profile?['image_url']?.toString().isNotEmpty == true)
                   ? NetworkImage(profile!['image_url'])
                   : null,
               child: (profile?['image_url']?.toString().isEmpty == true)
-                  ? const Icon(Icons.person, size: 70, color: Colors.white)
+                  ? const Icon(Icons.person, size: 55, color: Colors.white)
                   : null,
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -805,7 +842,7 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
 
   // 性別・職業バッジも共通バッジで統一
   Widget _buildFoodieGenderChip(String gender) {
-    return _buildFoodieInfoChip(Icons.wc, gender, Colors.pink);
+    return _buildFoodieInfoChip(Icons.wc, gender, const Color(0xFFF6BFBC));
   }
   Widget _buildFoodieOccupationChip(String occupation) {
     return _buildFoodieInfoChip(Icons.work, occupation, Colors.green);
@@ -896,6 +933,12 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
               profile!['preferred_gender'] != null) ...[
             const SizedBox(height: 16),
             _buildMatchingPreferencesSection(),
+          ],
+
+          // 支払い方法セクション
+          if (profile!['payment_preference'] != null) ...[
+            const SizedBox(height: 16),
+            _buildPaymentPreferenceSection(),
           ],
           
           const SizedBox(height: 32),
@@ -1122,7 +1165,7 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
             Column(
               children: _favoriteRestaurants.asMap().entries.map((entry) {
                 final index = entry.key;
-                final restaurant = entry.value;
+                final restaurant = Map<String, dynamic>.from(entry.value as Map);
                 final isLast = index == _favoriteRestaurants.length - 1;
                 
                 return Column(
@@ -1241,17 +1284,199 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
             },
             child: Container(
               padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _likedRestaurants.contains(restaurant['id']?.toString() ?? '') 
+                    ? const Color(0xFFF6BFBC) 
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Icon(
                 _likedRestaurants.contains(restaurant['id']?.toString() ?? '') 
                     ? Icons.favorite 
                     : Icons.favorite_border,
-                color: Colors.pink,
+                color: _likedRestaurants.contains(restaurant['id']?.toString() ?? '') 
+                    ? Colors.white 
+                    : Colors.grey,
                 size: 20,
               ),
             ),
           ),
+          
+          // 三点ボタン（メニュー表示）
+          if (restaurant['hotpepper_url'] != null)
+            GestureDetector(
+              onTap: () {
+                _showRestaurantMenu(context, restaurant);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.more_horiz,
+                  color: Colors.grey[600],
+                  size: 20,
+                ),
+              ),
+            ),
         ],
       ),
+    );
+  }
+
+  // レストランメニューモーダルを表示
+  void _showRestaurantMenu(BuildContext context, dynamic restaurant) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ハンドル
+              Container(
+                width: 50,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // レストラン名
+              Text(
+                restaurant['name']?.toString() ?? 'レストラン名未設定',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              // レストラン詳細画面ボタン
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context); // モーダルを閉じる
+                    // レストラン詳細画面への遷移
+                    final restaurantModel = Restaurant(
+                      id: restaurant['id'],
+                      name: restaurant['name'] ?? '',
+                      category: restaurant['category'],
+                      prefecture: restaurant['prefecture'],
+                      city: restaurant['city'],
+                      address: restaurant['address'],
+                      nearestStation: restaurant['nearest_station'],
+                      priceRange: restaurant['price_range'],
+                      lowPrice: restaurant['low_price'],
+                      highPrice: restaurant['high_price'],
+                      imageUrl: restaurant['image_url'],
+                      photoUrl: restaurant['photo_url'],
+                      priceLevel: restaurant['price_level'],
+                      operatingHours: restaurant['operating_hours'],
+                      hotpepperUrl: restaurant['hotpepper_url'],
+                      latitude: restaurant['latitude'],
+                      longitude: restaurant['longitude'],
+                    );
+                    
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RestaurantDetailPage(
+                          restaurant: restaurantModel,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.info_outline, color: Colors.white),
+                  label: const Text(
+                    'レストラン詳細を見る',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFFACD),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // HotPepperボタン
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context); // モーダルを閉じる
+                    final url = restaurant['hotpepper_url'].toString();
+                    try {
+                      if (await canLaunchUrl(Uri.parse(url))) {
+                        await launchUrl(
+                          Uri.parse(url),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
+                        throw 'URLを開けませんでした: $url';
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('URLを開けませんでした: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.open_in_new, color: Colors.white),
+                  label: const Text(
+                    'HotPepperで詳細を見る',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[600],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // キャンセルボタン
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    'キャンセル',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1368,25 +1593,25 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
 
   Widget _buildMatchingPreferencesSection() {
     final ageRange = profile?['preferred_age_range']?.toString();
-    final paymentPreference = profile?['payment_preference']?.toString();
     final preferredGender = profile?['preferred_gender']?.toString();
 
     List<Widget> preferenceItems = [];
 
+    // 希望年齢範囲の処理（複数選択対応）
     if (ageRange != null && ageRange.isNotEmpty) {
-      preferenceItems.add(
-        _buildFoodieInfoChip(Icons.cake, '${ageRange}歳', Colors.brown),
-      );
+      final ageRanges = ageRange.split(',').map((e) => e.trim()).toList();
+      for (final range in ageRanges) {
+        if (range.isNotEmpty) {
+          preferenceItems.add(
+            _buildFoodieInfoChip(Icons.cake, '${range}歳', Colors.brown),
+          );
+        }
+      }
     }
-    if (paymentPreference != null && paymentPreference.isNotEmpty) {
-      final paymentLabel = _getPaymentPreferenceLabel(paymentPreference);
-      preferenceItems.add(
-        _buildFoodieInfoChip(Icons.attach_money, paymentLabel, Colors.indigo),
-      );
-    }
+    
     if (preferredGender != null && preferredGender.isNotEmpty) {
       preferenceItems.add(
-        _buildFoodieInfoChip(Icons.wc, preferredGender, Colors.pink),
+        _buildFoodieInfoChip(Icons.wc, preferredGender, const Color(0xFFFFEFD5)),
       );
     }
 
@@ -1427,6 +1652,44 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
     );
   }
 
+  Widget _buildPaymentPreferenceSection() {
+    final paymentPreference = profile?['payment_preference']?.toString();
+    
+    if (paymentPreference == null || paymentPreference.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final paymentLabel = _getPaymentPreferenceLabel(paymentPreference);
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.attach_money, color: Colors.indigo.shade600, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  '支払い方法',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildFoodieInfoChip(Icons.attach_money, paymentLabel, Colors.indigo),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getPaymentPreferenceLabel(String? preference) {
     if (preference == null || preference.isEmpty) {
       return '未設定';
@@ -1435,7 +1698,7 @@ class _ProfileViewPageState extends State<ProfileViewPage> {
       case 'split':
         return '割り勘希望';
       case 'pay':
-        return '奢りたい';
+        return '奢ってもいい';
       case 'be_paid':
         return '奢られたい';
       default:

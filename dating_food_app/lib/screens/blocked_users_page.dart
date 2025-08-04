@@ -127,7 +127,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ブロックしたユーザー'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFFFEFD5),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -306,7 +306,7 @@ class _GroupMemberSearchPageState extends State<GroupMemberSearchPage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('メンバーを追加'),
-          backgroundColor: Colors.pink[400],
+          backgroundColor: const Color(0xFFFFFACD),
           foregroundColor: Colors.white,
           actions: [
             // フィルタークリアボタン
@@ -643,7 +643,7 @@ class _GroupMemberSearchPageState extends State<GroupMemberSearchPage> {
             : ElevatedButton(
                 onPressed: () => _showInviteConfirmDialog(userId, userName),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink[400],
+                  backgroundColor: const Color(0xFFFFFACD),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -673,7 +673,7 @@ class _GroupMemberSearchPageState extends State<GroupMemberSearchPage> {
               _inviteUser(userId, userName);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink[400],
+              backgroundColor: const Color(0xFFFFFACD),
               foregroundColor: Colors.white,
             ),
             child: const Text('招待する'),

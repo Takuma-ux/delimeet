@@ -34,17 +34,7 @@ class _LoginPageState extends State<LoginPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.pink.shade300,
-              Colors.pink.shade500,
-              Colors.pink.shade700,
-            ],
-          ),
-        ),
+        color: Colors.white,
         child: SafeArea(
           child: SingleChildScrollView(
             // ConstrainedBoxを削除してシンプルなPaddingに変更
@@ -53,30 +43,60 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 上部の余白を追加（画面サイズに依存しない固定値）
-                  SizedBox(height: kIsWeb ? 80 : 60),
+                  // 上部の余白を追加（全プラットフォームで統一）
+                  SizedBox(height: 40),
                   
                   // アプリロゴ・タイトル
-                  const Icon(
-                    Icons.favorite,
-                    size: 80,
-                    color: Colors.white,
-                  ),
+                  kIsWeb 
+                    ? Image.network(
+                        '/assets/logo.png',
+                        width: 200,
+                        height: 200,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.favorite,
+                            size: 120,
+                            color: Colors.white,
+                          );
+                        },
+                      )
+                    : Image.asset(
+                        'assets/logo.png',
+                        width: 200,
+                        height: 200,
+                      ),
                   const SizedBox(height: 24),
                   const Text(
                     'デリミート',
                     style: TextStyle(
                       fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                      letterSpacing: 2.0,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(2.0, 2.0),
+                          blurRadius: 4.0,
+                          color: Colors.black26,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
                     '素敵な出会いと美味しい食事を',
                     style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white70,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                      letterSpacing: 1.0,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(1.0, 1.0),
+                          blurRadius: 2.0,
+                          color: Colors.black26,
+                        ),
+                      ],
                     ),
                   ),
                   
@@ -100,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'または',
-                          style: TextStyle(color: Colors.white70),
+                          style: TextStyle(color: Colors.black),
                         ),
                       ),
                       Expanded(
@@ -124,7 +144,7 @@ class _LoginPageState extends State<LoginPage> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: Colors.pink.shade600,
+                        foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
@@ -149,8 +169,8 @@ class _LoginPageState extends State<LoginPage> {
                     child: OutlinedButton(
                       onPressed: () => _showLoginDialog(context),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white, width: 1.5),
+                        foregroundColor: Colors.black,
+                        side: const BorderSide(color: Colors.black, width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
@@ -181,14 +201,14 @@ class _LoginPageState extends State<LoginPage> {
                         child: const Text(
                           '利用規約',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: Colors.black,
                             decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
                       const Text(
                         ' • ',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: Colors.black),
                       ),
                       TextButton(
                         onPressed: () {
@@ -197,7 +217,7 @@ class _LoginPageState extends State<LoginPage> {
                         child: const Text(
                           'プライバシーポリシー',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: Colors.black,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -205,8 +225,8 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                   
-                  // 下部の余白を追加（画面サイズに依存しない固定値）
-                  SizedBox(height: kIsWeb ? 80 : 60),
+                  // 下部の余白を追加（全プラットフォームで統一）
+                  SizedBox(height: 40),
                 ],
               ),
             ),
@@ -612,9 +632,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.person_add, color: Colors.pink),
+                        Icon(Icons.person_add, color: Colors.grey[700]),
                         SizedBox(width: 8),
                         Text(
                           '新規登録',
@@ -637,7 +657,7 @@ class _LoginPageState extends State<LoginPage> {
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
                           labelText: 'メールアドレス',
-                          prefixIcon: Icon(Icons.email, color: Colors.pink),
+                          prefixIcon: Icon(Icons.email, color: const Color(0xFFFFEFD5)),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
@@ -653,9 +673,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: TextField(
                         controller: passwordController,
                         obscureText: true,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'パスワード（6文字以上）',
-                          prefixIcon: Icon(Icons.lock, color: Colors.pink),
+                          prefixIcon: Icon(Icons.lock, color: Colors.grey[700]),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
@@ -715,7 +735,7 @@ class _LoginPageState extends State<LoginPage> {
                                 });
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink,
+                                backgroundColor: Colors.grey[700],
                                 foregroundColor: Colors.white,
                               ),
                               child: const Text('登録'),
@@ -761,9 +781,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.login, color: Colors.pink),
+                        Icon(Icons.login, color: Colors.grey[700]),
                         SizedBox(width: 8),
                         Text(
                           'ログイン',
@@ -786,7 +806,7 @@ class _LoginPageState extends State<LoginPage> {
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
                           labelText: 'メールアドレス',
-                          prefixIcon: Icon(Icons.email, color: Colors.pink),
+                          prefixIcon: Icon(Icons.email, color: const Color(0xFFFFEFD5)),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
@@ -802,9 +822,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: TextField(
                         controller: passwordController,
                         obscureText: true,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'パスワード',
-                          prefixIcon: Icon(Icons.lock, color: Colors.pink),
+                          prefixIcon: Icon(Icons.lock, color: Colors.grey[700]),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
@@ -846,7 +866,7 @@ class _LoginPageState extends State<LoginPage> {
                                 });
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink,
+                                backgroundColor: Colors.grey[700],
                                 foregroundColor: Colors.white,
                               ),
                               child: const Text('ログイン'),
@@ -1393,7 +1413,7 @@ class _LoginPageState extends State<LoginPage> {
               _showEmailRegistrationDialog(context); // 新規登録ダイアログを表示
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pink,
+              backgroundColor: const Color(0xFFFFEFD5),
               foregroundColor: Colors.white,
             ),
             child: const Text('新規登録'),

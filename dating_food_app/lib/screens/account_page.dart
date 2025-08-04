@@ -146,7 +146,7 @@ class _AccountPageState extends State<AccountPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('アカウント'),
-        backgroundColor: Colors.pink,
+        backgroundColor: const Color(0xFFC0C0C0),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -299,118 +299,7 @@ class _AccountPageState extends State<AccountPage> {
               },
             ),
             
-            // 開発者用テストセクション（Web版では非表示）
-            if (!kIsWeb) ...[
-              const SizedBox(height: 32),
-              
-              const Text(
-                '開発者用テスト',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange,
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'プッシュ通知テスト',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'スリープ状態でもバナー通知が届くかテストできます',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _sendTestNotification('like'),
-                              icon: const Icon(Icons.favorite, size: 16),
-                              label: const Text('いいね通知'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink.shade100,
-                                foregroundColor: Colors.pink.shade700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _sendTestNotification('match'),
-                              icon: const Icon(Icons.favorite_border, size: 16),
-                              label: const Text('マッチ通知'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.shade100,
-                                foregroundColor: Colors.red.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _sendTestNotification('message'),
-                          icon: const Icon(Icons.message, size: 16),
-                          label: const Text('メッセージ通知'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade100,
-                            foregroundColor: Colors.blue.shade700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _refreshFCMToken,
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('FCMトークン更新'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.orange.shade700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _checkFCMTokenStatus,
-                              icon: const Icon(Icons.info, size: 16),
-                              label: const Text('トークン確認'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 32),
-            ],
+
             
             const SizedBox(height: 32),
             

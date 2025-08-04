@@ -14,7 +14,8 @@ import '../services/transit_time_service.dart';
 import '../services/web_image_helper.dart';
 import 'group_chat_page.dart';
 import 'profile_view_page.dart';
-import 'web_map_search_page.dart';
+// Web版専用のページを条件付きでインポート
+import 'web_map_search_page.dart' if (dart.library.io) 'web_map_search_page_stub.dart';
 
 class MapSearchPage extends StatefulWidget {
   const MapSearchPage({super.key});
@@ -1286,7 +1287,7 @@ class _MapSearchPageState extends State<MapSearchPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.orange[100],
+                        color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -1367,8 +1368,8 @@ class _MapSearchPageState extends State<MapSearchPage> {
                         icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
                         label: Text(isLiked ? 'いいね済み' : 'いいね'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isLiked ? Colors.pink : Colors.pink[100],
-                          foregroundColor: isLiked ? Colors.white : Colors.pink[800],
+                          backgroundColor: isLiked ? const Color(0xFFFFEFD5) : const Color(0xFFFDF5E6),
+                          foregroundColor: isLiked ? Colors.white : const Color(0xFFFFEFD5),
                         ),
                       ),
                     ),
@@ -1451,7 +1452,7 @@ class _MapSearchPageState extends State<MapSearchPage> {
                       decoration: BoxDecoration(
                         color: Colors.orange[50],
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange[200]!),
+                        border: Border.all(color: Colors.grey[200]!),
                       ),
                       child: Row(
                         children: [
@@ -2388,12 +2389,17 @@ class _MapSearchPageState extends State<MapSearchPage> {
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WebMapSearchPage(),
-                      ),
-                    );
+                    if (kIsWeb) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const WebMapSearchPage(),
+                        ),
+                      );
+                    } else {
+                      // モバイル版では通常の地図を使用
+                      Navigator.pop(context);
+                    }
                   },
                   icon: const Icon(Icons.map),
                   label: const Text('軽量マップを開く'),
